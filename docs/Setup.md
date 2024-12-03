@@ -1,9 +1,13 @@
 # Setup - Quick Guide
 
+- [Info](Info)
 - [Style Guide](Style-Guide)
 - [VS-Code Extensions](Recommended-VS-Code-Extension)
 - [Virtual Environments](Virtual-Environments)
 
+
+## Info
+The `requirements.txt` provided only works for the new api of gymnasium.
 
 ## Style Guide
 
