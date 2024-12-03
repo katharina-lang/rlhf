@@ -197,6 +197,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    device = "cpu"
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
@@ -211,6 +212,21 @@ if __name__ == "__main__":
 
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    # Load the model if it exists
+    models = [f for f in os.listdir("models")]
+    models_sorted = sorted(
+        models,
+        key=lambda x: int(x.split("__")[-1].split(".")[0].split("_")[0]),
+        reverse=True,
+    )
+    if models_sorted and args.exp_name in models_sorted[0]:
+        model_path = os.path.join("models", models_sorted[0])
+        agent.load_state_dict(torch.load(model_path))
+        agent.eval()  # Set the model to evaluation mode
+        print(f"Loaded model from {model_path}")
+    else:
+        print("No saved model found. Training from scratch.")
 
     # ALGO Logic: Storage setup
     obs = torch.zeros(
@@ -384,37 +400,38 @@ if __name__ == "__main__":
         )
 
     if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-        torch.save(agent.state_dict(), model_path)
-        print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
+        # save the trained model
+        torch.save(agent.state_dict(), f"models/{run_name}_agent.pt")
+        print(f"Model saved to models/{run_name}_agent.pt")
 
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
+        # from cleanrl_utils.evals.ppo_eval import evaluate
 
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
+        # episodic_returns = evaluate(
+        #     model_path,
+        #     make_env,
+        #     args.env_id,
+        #     eval_episodes=10,
+        #     run_name=f"{run_name}-eval",
+        #     Model=Agent,
+        #     device=device,
+        #     gamma=args.gamma,
+        # )
+        # for idx, episodic_return in enumerate(episodic_returns):
+        #     writer.add_scalar("eval/episodic_return", episodic_return, idx)
 
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(
-                args,
-                episodic_returns,
-                repo_id,
-                "PPO",
-                f"runs/{run_name}",
-                f"videos/{run_name}-eval",
-            )
+        # if args.upload_model:
+        #     from cleanrl_utils.huggingface import push_to_hub
+
+        #     repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
+        #     repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
+        #     push_to_hub(
+        #         args,
+        #         episodic_returns,
+        #         repo_id,
+        #         "PPO",
+        #         f"runs/{run_name}",
+        #         f"videos/{run_name}-eval",
+        #     )
 
     envs.close()
     writer.close()
