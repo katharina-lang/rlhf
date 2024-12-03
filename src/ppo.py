@@ -17,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 # tensorboard --logdir runs, clock on link
 # to train an agent (models get saved):
 # python -m src.ppo --total-timesteps 1000000 --num-steps 2048 --num-envs 8 --update-epochs 10 --learning-rate 1e-4 --capture-video
+# LunarLander-v3
 
 
 def make_env(gym_id, seed, idx, capture_video, run_name):
@@ -384,6 +385,12 @@ if __name__ == "__main__":
             next_obs, reward, terminations, truncations, infos = envs.step(
                 action.cpu().numpy()
             )
+
+            # TODO here i get the reward from the environment
+            # here I need to implement the RLHF interface ?, here I need the reward model
+            # reward = reward_model(next_obs, action)
+            # reward model should get trained through supervised ML
+
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
