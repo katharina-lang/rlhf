@@ -36,7 +36,7 @@ def train_reward_model(
     dataset = RewardDataset(pairwise_data)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 
-    for epoch in range(epochs):
+    for _ in range(epochs):
         for state1, state2, preference in dataloader:
             state1, state2, preference = (
                 state1.to(device),
@@ -201,89 +201,94 @@ if __name__ == "__main__":
                 action.cpu().numpy()
             )
 
-            with torch.no_grad():
-                predicted_reward = reward_model(
-                    torch.tensor(next_obs, dtype=torch.float32).to(device)
-                )
-            rewards[step] = predicted_reward.view(-1)
+            if not args.original:
+                with torch.no_grad():
+                    predicted_reward = reward_model(
+                        torch.tensor(next_obs, dtype=torch.float32).to(device)
+                    )
+                rewards[step] = predicted_reward.view(-1)
 
             next_done = np.logical_or(terminations, truncations)
-            # rewards[step] = torch.tensor(reward).to(device).view(-1)
+            if args.original:
+                rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
                 next_done
             ).to(device)
 
             # # # Collect trajectory data for each environment
             #### Trajectory Calc
-            for env_idx in range(num_envs):
-                trajectory_buffers[env_idx].append(
-                    {
-                        "state": next_obs[env_idx].cpu().numpy(),
-                        "action": action[env_idx].cpu().numpy(),
-                        "reward": reward[env_idx],
-                    }
-                )
+            if not args.original:
+                for env_idx in range(num_envs):
+                    trajectory_buffers[env_idx].append(
+                        {
+                            "state": next_obs[env_idx].cpu().numpy(),
+                            "action": action[env_idx].cpu().numpy(),
+                            "reward": reward[env_idx],
+                        }
+                    )
 
-                if len(trajectory_buffers[env_idx]) == segment_size:
-                    segment = trajectory_buffers[env_idx][:segment_size]
-                    trajectory_buffers[env_idx] = trajectory_buffers[env_idx][
-                        segment_size:
+                    if len(trajectory_buffers[env_idx]) == segment_size:
+                        segment = trajectory_buffers[env_idx][:segment_size]
+                        trajectory_buffers[env_idx] = trajectory_buffers[env_idx][
+                            segment_size:
+                        ]
+                        trajectory_segments.append(segment)
+
+                    if terminations[env_idx] or truncations[env_idx]:
+                        # If the buffer contains fewer steps, discard it (to ensure fixed-size segments)
+                        trajectory_buffers[env_idx] = []
+
+                if step_counter >= pairwise_generation_interval or any(terminations):
+                    step_counter = 0
+
+                    trajectory_segments = [
+                        segment
+                        for segment in trajectory_segments
+                        if len(segment) == segment_size
                     ]
-                    trajectory_segments.append(segment)
 
-                if terminations[env_idx] or truncations[env_idx]:
-                    # If the buffer contains fewer steps, discard it (to ensure fixed-size segments)
-                    trajectory_buffers[env_idx] = []
+                    if args.use_human_feedback:
+                        all_segments_for_feedback.extend(trajectory_segments)
+                        while len(all_segments_for_feedback) > 1:
+                            segment1 = all_segments_for_feedback.pop(0)
+                            segment2 = all_segments_for_feedback.pop(0)
+                            feedback = show_and_get_feedback(
+                                segment1, segment2, args.env_id
+                            )
 
-            if step_counter >= pairwise_generation_interval or any(terminations):
-                step_counter = 0
+                            if feedback:
+                                pairwise_data.append(feedback)
+                    else:
+                        if len(trajectory_segments) > 1:
+                            pairwise_data.extend(
+                                generate_pairwise_data(trajectory_segments)
+                            )
 
-                trajectory_segments = [
-                    segment
-                    for segment in trajectory_segments
-                    if len(segment) == segment_size
-                ]
-
-                if args.use_human_feedback:
-                    all_segments_for_feedback.extend(trajectory_segments)
-                    while len(all_segments_for_feedback) > 1:
-                        segment1 = all_segments_for_feedback.pop(0)
-                        segment2 = all_segments_for_feedback.pop(0)
-                        feedback = show_and_get_feedback(
-                            segment1, segment2, args.env_id
-                        )
-
-                        if feedback:
-                            pairwise_data.append(feedback)
-                else:
+                    # filter out if segments are not the same size
                     if len(trajectory_segments) > 1:
                         pairwise_data.extend(
                             generate_pairwise_data(trajectory_segments)
                         )
 
-                # filter out if segments are not the same size
-                if len(trajectory_segments) > 1:
-                    pairwise_data.extend(generate_pairwise_data(trajectory_segments))
+                # Train reward model after collecting enough pairwise data
+                if len(pairwise_data) >= 10:
+                    # Reward model training dataset
+                    reward_dataset = RewardDataset(pairwise_data)
+                    reward_dataloader = torch.utils.data.DataLoader(
+                        reward_dataset, batch_size=32, shuffle=True
+                    )
+                    ###
+                    train_reward_model(
+                        reward_model,
+                        reward_optimizer,
+                        pairwise_data,
+                        global_step,
+                        epochs=3,
+                        writer=writer,
+                    )
+                    pairwise_data.clear()
 
-            # Train reward model after collecting enough pairwise data
-            if len(pairwise_data) >= 10:
-                # Reward model training dataset
-                reward_dataset = RewardDataset(pairwise_data)
-                reward_dataloader = torch.utils.data.DataLoader(
-                    reward_dataset, batch_size=32, shuffle=True
-                )
-                ###
-                train_reward_model(
-                    reward_model,
-                    reward_optimizer,
-                    pairwise_data,
-                    global_step,
-                    epochs=3,
-                    writer=writer,
-                )
-                pairwise_data.clear()
-
-            # # # collect ending
+                # # # collect ending
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -297,11 +302,6 @@ if __name__ == "__main__":
                         writer.add_scalar(
                             "charts/episodic_length", info["episode"]["l"], global_step
                         )
-
-        # if iteration % 10 == 0:  # Save every 10 iterations
-        #     torch.save(agent.state_dict(), f"models/{run_name}_agent.pt")
-        #     torch.save(reward_model.state_dict(), f"models/{run_name}_reward_model.pt")
-        #     print("Models saved.")
 
         # bootstrap value if not done
         with torch.no_grad():

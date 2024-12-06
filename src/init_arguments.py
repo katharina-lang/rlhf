@@ -65,6 +65,7 @@ class Args:
 
     # #
     use_human_feedback: bool = False
+    original: bool = True
 
     # to be filled in runtime
     batch_size: int = 0
