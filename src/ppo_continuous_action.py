@@ -413,22 +413,13 @@ if __name__ == "__main__":
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
 
-    # ### human labeler
-    # pairwise_data = []
-    # for _ in range(num_pairs):  # Generate pairs for human feedback
-    #     seg1, seg2 = random.sample(trajectory_segments, 2)
-    #     # Ask a human to label the preference
-    #     print("Segment 1:", seg1)
-    #     print("Segment 2:", seg2)
-    #     preference = int(input("Which segment is better? (1 for seg1, 0 for seg2): "))
-    #     pairwise_data.append((seg1, seg2, preference))
-
     if args.save_model:
         # save the trained model
         torch.save(agent.state_dict(), f"models/{run_name}_agent.pt")
         print(f"Model saved to models/{run_name}_agent.pt")
-        torch.save(reward_model.state_dict(), f"models/{run_name}_reward_model.pt")
-        print(f"Model saved to models/{run_name}_reward_model.pt")
+        if not args.original:
+            torch.save(reward_model.state_dict(), f"models/{run_name}_reward_model.pt")
+            print(f"Model saved to models/{run_name}_reward_model.pt")
 
     envs.close()
     writer.close()
