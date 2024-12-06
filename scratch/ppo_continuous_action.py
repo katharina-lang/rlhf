@@ -1,11 +1,7 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
-
-# python -m src.ppo_continuous_action --capture-video --save-model
-# python -m src.ppo_continuous_action --capture-video --save-model --num-envs 4 --no-original  --no-use_human_feedback
 import os
 import random
 import time
-
 
 import gymnasium as gym
 import numpy as np
@@ -13,51 +9,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
-from src.reward_model import RewardModel, RewardDataset, reward_model_loss
-from src.init_arguments import Args
-from src.utils import (
-    make_env,
-    Agent,
-    generate_pairwise_data,
-    save_segment_video,
-    show_and_get_feedback,
-)
-
-
-def train_reward_model(
-    reward_model,
-    reward_optimizer,
-    pairwise_data,
-    global_step,
-    epochs=3,
-    writer=None,
-):
-    dataset = RewardDataset(pairwise_data)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
-
-    for _ in range(epochs):
-        for state1, state2, preference in dataloader:
-            state1, state2, preference = (
-                state1.to(device),
-                state2.to(device),
-                preference.to(device),
-            )
-            reward1 = reward_model(state1.mean(dim=1))
-            reward2 = reward_model(state2.mean(dim=1))
-            loss = reward_model_loss(reward1, reward2, preference)
-
-            reward_optimizer.zero_grad()
-            loss.backward()
-            reward_optimizer.step()
-
-            # Log metrics
-            correct = ((reward1 > reward2) == preference).sum().item()
-            total = len(preference)
-            accuracy = correct / total
-            writer.add_scalar("reward_model/loss", loss.item(), global_step)
-            writer.add_scalar("reward_model/accuracy", accuracy, global_step)
+from scratch.arguments import Args
+from scratch.agent import Agent
+from scratch.utils import make_env
 
 
 if __name__ == "__main__":
@@ -67,30 +22,6 @@ if __name__ == "__main__":
     args.num_iterations = args.total_timesteps // args.batch_size
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    ###
-    # set up trajectory collection
-    #### Trajectory Calc
-    num_envs = args.num_envs
-    trajectory_buffers = [[] for _ in range(num_envs)]
-    segment_size = 90
-    trajectory_segments = []
-    pairwise_data = []
-    pairwise_generation_interval = 100
-    step_counter = 0
-    all_segments_for_feedback = []
-
-    if args.track:
-        import wandb
-
-        wandb.init(
-            project=args.wandb_project_name,
-            entity=args.wandb_entity,
-            sync_tensorboard=True,
-            config=vars(args),
-            name=run_name,
-            monitor_gym=True,
-            save_code=True,
-        )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
@@ -120,42 +51,6 @@ if __name__ == "__main__":
 
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
-
-    # Initialize the reward model
-    reward_model = RewardModel(
-        input_dim=np.prod(envs.single_observation_space.shape)
-    ).to(device)
-    reward_optimizer = optim.Adam(reward_model.parameters(), lr=1e-4)
-
-    # Load the policy model if it exists
-    os.makedirs("models", exist_ok=True)
-    models_agent = [f for f in os.listdir("models") if "agent" in f]
-    models_agent_sorted = sorted(
-        models_agent,
-        key=lambda x: int(x.split("__")[-1].split(".")[0].split("_")[0]),
-        reverse=True,
-    )
-    if models_agent_sorted and args.exp_name in models_agent_sorted[0]:
-        model_path = os.path.join("models", models_agent_sorted[0])
-        agent.load_state_dict(torch.load(model_path))
-        agent.eval()  # Set the model to evaluation mode
-        print(f"Loaded model from {model_path}")
-    else:
-        print("No saved agent model found. Training from scratch.")
-
-    models_reward = [f for f in os.listdir("models") if "reward" in f]
-    models_reward_sorted = sorted(
-        models_reward,
-        key=lambda x: int(x.split("__")[-1].split(".")[0].split("_")[0]),
-        reverse=True,
-    )
-    if models_reward_sorted and args.exp_name in models_reward_sorted[0]:
-        model_path = os.path.join("models", models_reward_sorted[0])
-        reward_model.load_state_dict(torch.load(model_path))
-        reward_model.eval()  # Set the model to evaluation mode
-        print(f"Loaded model from {model_path}")
-    else:
-        print("No saved reward model found. Training from scratch.")
 
     # ALGO Logic: Storage setup
     obs = torch.zeros(
@@ -188,8 +83,6 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            step_counter += args.num_envs  ###
-
             # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
@@ -201,95 +94,11 @@ if __name__ == "__main__":
             next_obs, reward, terminations, truncations, infos = envs.step(
                 action.cpu().numpy()
             )
-
-            if not args.original:
-                with torch.no_grad():
-                    predicted_reward = reward_model(
-                        torch.tensor(next_obs, dtype=torch.float32).to(device)
-                    )
-                rewards[step] = predicted_reward.view(-1)
-
             next_done = np.logical_or(terminations, truncations)
-            if args.original:
-                rewards[step] = torch.tensor(reward).to(device).view(-1)
+            rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
                 next_done
             ).to(device)
-
-            # # # Collect trajectory data for each environment
-            #### Trajectory Calc
-            if not args.original:
-                for env_idx in range(num_envs):
-                    trajectory_buffers[env_idx].append(
-                        {
-                            "state": next_obs[env_idx].cpu().numpy(),
-                            "action": action[env_idx].cpu().numpy(),
-                            "reward": reward[env_idx],
-                        }
-                    )
-
-                    if len(trajectory_buffers[env_idx]) == segment_size:
-                        segment = trajectory_buffers[env_idx][:segment_size]
-                        trajectory_buffers[env_idx] = trajectory_buffers[env_idx][
-                            segment_size:
-                        ]
-                        trajectory_segments.append(segment)
-
-                    if terminations[env_idx] or truncations[env_idx]:
-                        # If the buffer contains fewer steps, discard it (to ensure fixed-size segments)
-                        trajectory_buffers[env_idx] = []
-
-                if step_counter >= pairwise_generation_interval or any(terminations):
-                    step_counter = 0
-
-                    trajectory_segments = [
-                        segment
-                        for segment in trajectory_segments
-                        if len(segment) == segment_size
-                    ]
-
-                    if args.use_human_feedback:
-                        all_segments_for_feedback.extend(trajectory_segments)
-                        while len(all_segments_for_feedback) > 1:
-                            segment1 = all_segments_for_feedback.pop(0)
-                            segment2 = all_segments_for_feedback.pop(0)
-                            feedback = show_and_get_feedback(
-                                segment1, segment2, args.env_id
-                            )
-
-                            if feedback:
-                                pairwise_data.append(feedback)
-                    else:
-                        if len(trajectory_segments) > 1:
-                            pairwise_data.extend(
-                                generate_pairwise_data(trajectory_segments)
-                            )
-
-                    # filter out if segments are not the same size
-                    if len(trajectory_segments) > 1:
-                        pairwise_data.extend(
-                            generate_pairwise_data(trajectory_segments)
-                        )
-
-                # Train reward model after collecting enough pairwise data
-                if len(pairwise_data) >= 10:
-                    # Reward model training dataset
-                    reward_dataset = RewardDataset(pairwise_data)
-                    reward_dataloader = torch.utils.data.DataLoader(
-                        reward_dataset, batch_size=32, shuffle=True
-                    )
-                    ###
-                    train_reward_model(
-                        reward_model,
-                        reward_optimizer,
-                        pairwise_data,
-                        global_step,
-                        epochs=3,
-                        writer=writer,
-                    )
-                    pairwise_data.clear()
-
-                # # # collect ending
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -415,12 +224,9 @@ if __name__ == "__main__":
         )
 
     if args.save_model:
-        # save the trained model
-        torch.save(agent.state_dict(), f"models/{run_name}_agent.pt")
-        print(f"Model saved to models/{run_name}_agent.pt")
-        if not args.original:
-            torch.save(reward_model.state_dict(), f"models/{run_name}_reward_model.pt")
-            print(f"Model saved to models/{run_name}_reward_model.pt")
+        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
+        torch.save(agent.state_dict(), model_path)
+        print(f"model saved to {model_path}")
 
     envs.close()
     writer.close()
