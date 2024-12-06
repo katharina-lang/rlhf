@@ -4,7 +4,7 @@ import random
 import time
 from distutils.util import strtobool
 
-import gym  # OpenAI Gym für Umgebungen wie CartPole oder Atari
+import gymnasium as gym  # OpenAI Gym für Umgebungen wie CartPole oder Atari
 import numpy as np  # Für numerische Operationen
 import torch  # Hauptbibliothek für maschinelles Lernen und Deep Learning
 import torch.nn as nn  # Modul für neuronale Netzwerke
