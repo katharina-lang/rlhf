@@ -1,8 +1,10 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+
+# python -m src.ppo_continuous_action --capture-video --save-model
 import os
 import random
 import time
-from dataclasses import dataclass
+
 
 import gymnasium as gym
 import numpy as np
@@ -12,157 +14,49 @@ import torch.optim as optim
 import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
+from src.reward_model import RewardModel, RewardDataset, reward_model_loss
+from src.init_arguments import Args
+from src.utils import (
+    make_env,
+    Agent,
+    generate_pairwise_data,
+    save_segment_video,
+    show_and_get_feedback,
+)
 
 
-@dataclass
-class Args:
-    exp_name: str = os.path.basename(__file__)[: -len(".py")]
-    """the name of this experiment"""
-    seed: int = 1
-    """seed of the experiment"""
-    torch_deterministic: bool = True
-    """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = True
-    """if toggled, cuda will be enabled by default"""
-    track: bool = False
-    """if toggled, this experiment will be tracked with Weights and Biases"""
-    wandb_project_name: str = "cleanRL"
-    """the wandb's project name"""
-    wandb_entity: str = None
-    """the entity (team) of wandb's project"""
-    capture_video: bool = False
-    """whether to capture videos of the agent performances (check out `videos` folder)"""
-    save_model: bool = False
-    """whether to save model into the `runs/{run_name}` folder"""
-    upload_model: bool = False
-    """whether to upload the saved model to huggingface"""
-    hf_entity: str = ""
-    """the user or org name of the model repository from the Hugging Face Hub"""
+def train_reward_model(
+    reward_model,
+    reward_optimizer,
+    pairwise_data,
+    global_step,
+    epochs=3,
+    writer=None,
+):
+    dataset = RewardDataset(pairwise_data)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 
-    # Algorithm specific arguments
-    env_id: str = "HalfCheetah-v5"
-    """the id of the environment"""
-    total_timesteps: int = 1000000
-    """total timesteps of the experiments"""
-    learning_rate: float = 3e-4
-    """the learning rate of the optimizer"""
-    num_envs: int = 1
-    """the number of parallel game environments"""
-    num_steps: int = 2048
-    """the number of steps to run in each environment per policy rollout"""
-    anneal_lr: bool = True
-    """Toggle learning rate annealing for policy and value networks"""
-    gamma: float = 0.99
-    """the discount factor gamma"""
-    gae_lambda: float = 0.95
-    """the lambda for the general advantage estimation"""
-    num_minibatches: int = 32
-    """the number of mini-batches"""
-    update_epochs: int = 10
-    """the K epochs to update the policy"""
-    norm_adv: bool = True
-    """Toggles advantages normalization"""
-    clip_coef: float = 0.2
-    """the surrogate clipping coefficient"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.0
-    """coefficient of the entropy"""
-    vf_coef: float = 0.5
-    """coefficient of the value function"""
-    max_grad_norm: float = 0.5
-    """the maximum norm for the gradient clipping"""
-    target_kl: float = None
-    """the target KL divergence threshold"""
+    for epoch in range(epochs):
+        for state1, state2, preference in dataloader:
+            state1, state2, preference = (
+                state1.to(device),
+                state2.to(device),
+                preference.to(device),
+            )
+            reward1 = reward_model(state1.mean(dim=1))
+            reward2 = reward_model(state2.mean(dim=1))
+            loss = reward_model_loss(reward1, reward2, preference)
 
-    # to be filled in runtime
-    batch_size: int = 0
-    """the batch size (computed in runtime)"""
-    minibatch_size: int = 0
-    """the mini-batch size (computed in runtime)"""
-    num_iterations: int = 0
-    """the number of iterations (computed in runtime)"""
+            reward_optimizer.zero_grad()
+            loss.backward()
+            reward_optimizer.step()
 
-
-def make_env(env_id, idx, capture_video, run_name, gamma):
-    def thunk():
-        if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
-        else:
-            env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(
-            env
-        )  # deal with dm_control's Dict observation space
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        env = gym.wrappers.ClipAction(env)
-        env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(
-            env,
-            lambda obs: np.clip(obs, -10, 10),
-            observation_space=gym.spaces.Box(
-                low=-10,
-                high=10,
-                shape=env.observation_space.shape,
-                dtype=env.observation_space.dtype,
-            ),
-        )
-        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
-        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
-        return env
-
-    return thunk
-
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
-
-
-class Agent(nn.Module):
-    def __init__(self, envs):
-        super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(
-                nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)
-            ),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
-        )
-        self.actor_mean = nn.Sequential(
-            layer_init(
-                nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)
-            ),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(
-                nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01
-            ),
-        )
-        self.actor_logstd = nn.Parameter(
-            torch.zeros(1, np.prod(envs.single_action_space.shape))
-        )
-
-    def get_value(self, x):
-        return self.critic(x)
-
-    def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
-        if action is None:
-            action = probs.sample()
-        return (
-            action,
-            probs.log_prob(action).sum(1),
-            probs.entropy().sum(1),
-            self.critic(x),
-        )
+            # Log metrics
+            correct = ((reward1 > reward2) == preference).sum().item()
+            total = len(preference)
+            accuracy = correct / total
+            writer.add_scalar("reward_model/loss", loss.item(), global_step)
+            writer.add_scalar("reward_model/accuracy", accuracy, global_step)
 
 
 if __name__ == "__main__":
@@ -171,6 +65,19 @@ if __name__ == "__main__":
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     args.num_iterations = args.total_timesteps // args.batch_size
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+
+    ###
+    # set up trajectory collection
+    #### Trajectory Calc
+    num_envs = args.num_envs
+    trajectory_buffers = [[] for _ in range(num_envs)]
+    segment_size = 90
+    trajectory_segments = []
+    pairwise_data = []
+    pairwise_generation_interval = 100
+    step_counter = 0
+    all_segments_for_feedback = []
+
     if args.track:
         import wandb
 
@@ -213,20 +120,41 @@ if __name__ == "__main__":
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    # Load the model if it exists
-    models = [f for f in os.listdir("models")]
-    models_sorted = sorted(
-        models,
+    # Initialize the reward model
+    reward_model = RewardModel(
+        input_dim=np.prod(envs.single_observation_space.shape)
+    ).to(device)
+    reward_optimizer = optim.Adam(reward_model.parameters(), lr=1e-4)
+
+    # Load the policy model if it exists
+    os.makedir("models", exist_ok=True)
+    models_agent = [f for f in os.listdir("models") if "agent" in f]
+    models_agent_sorted = sorted(
+        models_agent,
         key=lambda x: int(x.split("__")[-1].split(".")[0].split("_")[0]),
         reverse=True,
     )
-    if models_sorted and args.exp_name in models_sorted[0]:
-        model_path = os.path.join("models", models_sorted[0])
+    if models_agent_sorted and args.exp_name in models_agent_sorted[0]:
+        model_path = os.path.join("models", models_agent_sorted[0])
         agent.load_state_dict(torch.load(model_path))
         agent.eval()  # Set the model to evaluation mode
         print(f"Loaded model from {model_path}")
     else:
-        print("No saved model found. Training from scratch.")
+        print("No saved agent model found. Training from scratch.")
+
+    models_reward = [f for f in os.listdir("models") if "reward" in f]
+    models_reward_sorted = sorted(
+        models_reward,
+        key=lambda x: int(x.split("__")[-1].split(".")[0].split("_")[0]),
+        reverse=True,
+    )
+    if models_reward_sorted and args.exp_name in models_reward_sorted[0]:
+        model_path = os.path.join("models", models_reward_sorted[0])
+        reward_model.load_state_dict(torch.load(model_path))
+        reward_model.eval()  # Set the model to evaluation mode
+        print(f"Loaded model from {model_path}")
+    else:
+        print("No saved reward model found. Training from scratch.")
 
     # ALGO Logic: Storage setup
     obs = torch.zeros(
@@ -259,6 +187,8 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
+            step_counter += args.num_envs  ###
+
             # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
@@ -270,11 +200,90 @@ if __name__ == "__main__":
             next_obs, reward, terminations, truncations, infos = envs.step(
                 action.cpu().numpy()
             )
+
+            with torch.no_grad():
+                predicted_reward = reward_model(
+                    torch.tensor(next_obs, dtype=torch.float32).to(device)
+                )
+            rewards[step] = predicted_reward.view(-1)
+
             next_done = np.logical_or(terminations, truncations)
-            rewards[step] = torch.tensor(reward).to(device).view(-1)
+            # rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
                 next_done
             ).to(device)
+
+            # # # Collect trajectory data for each environment
+            #### Trajectory Calc
+            for env_idx in range(num_envs):
+                trajectory_buffers[env_idx].append(
+                    {
+                        "state": next_obs[env_idx].cpu().numpy(),
+                        "action": action[env_idx].cpu().numpy(),
+                        "reward": reward[env_idx],
+                    }
+                )
+
+                if len(trajectory_buffers[env_idx]) == segment_size:
+                    segment = trajectory_buffers[env_idx][:segment_size]
+                    trajectory_buffers[env_idx] = trajectory_buffers[env_idx][
+                        segment_size:
+                    ]
+                    trajectory_segments.append(segment)
+
+                if terminations[env_idx] or truncations[env_idx]:
+                    # If the buffer contains fewer steps, discard it (to ensure fixed-size segments)
+                    trajectory_buffers[env_idx] = []
+
+            if step_counter >= pairwise_generation_interval or any(terminations):
+                step_counter = 0
+
+                trajectory_segments = [
+                    segment
+                    for segment in trajectory_segments
+                    if len(segment) == segment_size
+                ]
+
+                if args.use_human_feedback:
+                    all_segments_for_feedback.extend(trajectory_segments)
+                    while len(all_segments_for_feedback) > 1:
+                        segment1 = all_segments_for_feedback.pop(0)
+                        segment2 = all_segments_for_feedback.pop(0)
+                        feedback = show_and_get_feedback(
+                            segment1, segment2, args.env_id
+                        )
+
+                        if feedback:
+                            pairwise_data.append(feedback)
+                else:
+                    if len(trajectory_segments) > 1:
+                        pairwise_data.extend(
+                            generate_pairwise_data(trajectory_segments)
+                        )
+
+                # filter out if segments are not the same size
+                if len(trajectory_segments) > 1:
+                    pairwise_data.extend(generate_pairwise_data(trajectory_segments))
+
+            # Train reward model after collecting enough pairwise data
+            if len(pairwise_data) >= 10:
+                # Reward model training dataset
+                reward_dataset = RewardDataset(pairwise_data)
+                reward_dataloader = torch.utils.data.DataLoader(
+                    reward_dataset, batch_size=32, shuffle=True
+                )
+                ###
+                train_reward_model(
+                    reward_model,
+                    reward_optimizer,
+                    pairwise_data,
+                    global_step,
+                    epochs=3,
+                    writer=writer,
+                )
+                pairwise_data.clear()
+
+            # # # collect ending
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -288,6 +297,11 @@ if __name__ == "__main__":
                         writer.add_scalar(
                             "charts/episodic_length", info["episode"]["l"], global_step
                         )
+
+        # if iteration % 10 == 0:  # Save every 10 iterations
+        #     torch.save(agent.state_dict(), f"models/{run_name}_agent.pt")
+        #     torch.save(reward_model.state_dict(), f"models/{run_name}_reward_model.pt")
+        #     print("Models saved.")
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -399,39 +413,22 @@ if __name__ == "__main__":
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
 
+    # ### human labeler
+    # pairwise_data = []
+    # for _ in range(num_pairs):  # Generate pairs for human feedback
+    #     seg1, seg2 = random.sample(trajectory_segments, 2)
+    #     # Ask a human to label the preference
+    #     print("Segment 1:", seg1)
+    #     print("Segment 2:", seg2)
+    #     preference = int(input("Which segment is better? (1 for seg1, 0 for seg2): "))
+    #     pairwise_data.append((seg1, seg2, preference))
+
     if args.save_model:
         # save the trained model
         torch.save(agent.state_dict(), f"models/{run_name}_agent.pt")
         print(f"Model saved to models/{run_name}_agent.pt")
-
-        # from cleanrl_utils.evals.ppo_eval import evaluate
-
-        # episodic_returns = evaluate(
-        #     model_path,
-        #     make_env,
-        #     args.env_id,
-        #     eval_episodes=10,
-        #     run_name=f"{run_name}-eval",
-        #     Model=Agent,
-        #     device=device,
-        #     gamma=args.gamma,
-        # )
-        # for idx, episodic_return in enumerate(episodic_returns):
-        #     writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        # if args.upload_model:
-        #     from cleanrl_utils.huggingface import push_to_hub
-
-        #     repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-        #     repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-        #     push_to_hub(
-        #         args,
-        #         episodic_returns,
-        #         repo_id,
-        #         "PPO",
-        #         f"runs/{run_name}",
-        #         f"videos/{run_name}-eval",
-        #     )
+        torch.save(reward_model.state_dict(), f"models/{run_name}_reward_model.pt")
+        print(f"Model saved to models/{run_name}_reward_model.pt")
 
     envs.close()
     writer.close()

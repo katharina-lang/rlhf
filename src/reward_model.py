@@ -20,3 +20,28 @@ class RewardModel(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+
+class RewardDataset(torch.utils.data.Dataset):
+    def __init__(self, pairwise_data):
+        self.data = pairwise_data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        seg1, seg2, preference = self.data[idx]
+        state1 = torch.tensor(
+            np.array([step["state"] for step in seg1]), dtype=torch.float32
+        )
+        state2 = torch.tensor(
+            np.array([step["state"] for step in seg2]), dtype=torch.float32
+        )
+        return state1, state2, preference
+
+
+def reward_model_loss(reward1, reward2, preference):
+    prob = torch.sigmoid(reward1 - reward2)
+    return -torch.mean(
+        preference * torch.log(prob) + (1 - preference) * torch.log(1 - prob)
+    )

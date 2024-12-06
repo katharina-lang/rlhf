@@ -1,0 +1,9 @@
+Plan:
+1. reward model
+2. collect synthetic feedback
+3. train reward model
+4. replace environment reward model into PPO
+5. implement human feedback
+6. evaluate 
+
+collect synthetic feedback with garbage reward model?
