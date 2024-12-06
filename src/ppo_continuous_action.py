@@ -127,7 +127,7 @@ if __name__ == "__main__":
     reward_optimizer = optim.Adam(reward_model.parameters(), lr=1e-4)
 
     # Load the policy model if it exists
-    os.makedir("models", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
     models_agent = [f for f in os.listdir("models") if "agent" in f]
     models_agent_sorted = sorted(
         models_agent,
