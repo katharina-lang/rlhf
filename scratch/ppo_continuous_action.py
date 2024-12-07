@@ -12,13 +12,14 @@ import tyro
 from torch.utils.tensorboard import SummaryWriter
 from scratch.arguments import Args
 from scratch.agent import Agent
-from scratch.utils import make_env
+from scratch.utils import make_env, advantage_calculation
 
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
-    args.batch_size = int(args.num_envs * args.num_steps)
+    args.batch_size = int(args.num_envs * args.num_steps)  # Rollouts Data
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    # Number of policy updates
     args.num_iterations = args.total_timesteps // args.batch_size
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
@@ -71,6 +72,7 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
+    # starts rollout loop
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
@@ -78,6 +80,7 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        # collect rollout data at each step
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -94,6 +97,8 @@ if __name__ == "__main__":
             next_obs, reward, terminations, truncations, infos = envs.step(
                 action.cpu().numpy()
             )
+
+            # Data Storage
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
@@ -113,7 +118,11 @@ if __name__ == "__main__":
                             "charts/episodic_length", info["episode"]["l"], global_step
                         )
 
+        # advantage calculation
+        # used to measure how much better an action was compared to the baseline (critic prediction)
+        # uses GAE
         # bootstrap value if not done
+
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
