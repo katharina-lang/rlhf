@@ -4,6 +4,12 @@ import numpy as np
 from torch.distributions.normal import Normal
 
 
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
@@ -47,9 +53,3 @@ class Agent(nn.Module):
             probs.entropy().sum(1),
             self.critic(x),
         )
-
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
