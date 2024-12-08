@@ -9,10 +9,10 @@ import torch.nn as nn
 import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
-from scratch.arguments import Args
-from scratch.agent import Agent
-from scratch.utils import make_env
-from scratch.reward_model import RewardModel
+from rlhf.configs.arguments import Args
+from rlhf.core.agent import Agent
+from rlhf.utils.env import make_env
+from rlhf.core.reward_model import RewardModel
 
 
 class PPO:
