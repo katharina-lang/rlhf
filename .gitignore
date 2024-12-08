@@ -5,3 +5,4 @@ models/
 videos/
 .flake8
 scratch/
+.DS_Store
