@@ -143,40 +143,32 @@ def create_matrices_from_trajectories(trajectory_buffers, sequence_length=60):
     Converts trajectory buffers into matrices of observations and actions.
     
     Args:
-        trajectory_buffers (list of list of dict): Trajectory buffers for each environment.
+        trajectory_buffers (list of list of dict]): Trajectory buffers for each environment.
         sequence_length (int): Number of frames per sequence.
     
     Returns:
-        list of np.ndarray: List of matrices, each of shape (sequence_length, 2).
+        list of np.ndarray: List of matrices, each with shape (sequence_length, 2).
     """
     matrices = []
-
-    for env_idx, buffer in enumerate(trajectory_buffers):
+    for buffer in trajectory_buffers:
         if len(buffer) < sequence_length:
             continue
 
         for start_idx in range(len(buffer) - sequence_length + 1):
             sequence = buffer[start_idx:start_idx + sequence_length]
-
-            # Create matrix with observations and actions
-            matrix = np.array([
-                [entry["obs"], entry["action"]] for entry in sequence
-            ])
-
+            matrix = np.array([[entry["obs"], entry["action"]] for entry in sequence])
             matrices.append(matrix)
-
     return matrices
 
 
-def assign_labels_to_random_sequences(trajectory_buffers, matrices, num_pairs=10, sequence_length=60):
+def compare_and_label_sequences(matrices, rewards, num_pairs=10):
     """
-    Randomly selects pairs of matrices to assign labels based on cumulative rewards.
+    Compares random pairs of sequences and assigns labels based on cumulative rewards.
     
     Args:
-        trajectory_buffers (list of list of dict): Trajectory buffers for each environment.
-        matrices (list of np.ndarray): List of matrices with observations and actions.
-        num_pairs (int): Number of pairs to label.
-        sequence_length (int): Number of frames per sequence.
+        matrices (list of np.ndarray): List of matrices for each trajectory.
+        rewards (list of list of float): Rewards corresponding to each trajectory.
+        num_pairs (int): Number of sequence pairs to compare.
     
     Returns:
         list of dict: Each entry contains:
@@ -185,46 +177,42 @@ def assign_labels_to_random_sequences(trajectory_buffers, matrices, num_pairs=10
     """
     labeled_data = []
 
+    # Convert rewards into cumulative rewards for all sequences
+    cumulative_rewards = [
+        sum(rewards[start_idx:start_idx + matrix.shape[0]])
+        for start_idx, matrix in enumerate(matrices)
+    ]
+
     for _ in range(num_pairs):
-        # Randomly select two sequences
         idx1, idx2 = random.sample(range(len(matrices)), 2)
         matrix1, matrix2 = matrices[idx1], matrices[idx2]
+        reward1, reward2 = cumulative_rewards[idx1], cumulative_rewards[idx2]
 
-        # Compute cumulative rewards for the selected sequences
-        seq1_rewards = [entry["reward"] for entry in trajectory_buffers[0][idx1:idx1 + sequence_length]]
-        seq2_rewards = [entry["reward"] for entry in trajectory_buffers[0][idx2:idx2 + sequence_length]]
-        cumulative_reward1 = sum(seq1_rewards)
-        cumulative_reward2 = sum(seq2_rewards)
-
-        # Assign labels based on rewards
-        if cumulative_reward1 == cumulative_reward2:
-            labeled_data.append({"matrix": matrix1, "label": 0.5})
-            labeled_data.append({"matrix": matrix2, "label": 0.5})
-        elif cumulative_reward1 > cumulative_reward2:
-            labeled_data.append({"matrix": matrix1, "label": 1})
-            labeled_data.append({"matrix": matrix2, "label": 0})
+        if reward1 == reward2:
+            label1, label2 = 0.5, 0.5
+        elif reward1 > reward2:
+            label1, label2 = 1, 0
         else:
-            labeled_data.append({"matrix": matrix1, "label": 0})
-            labeled_data.append({"matrix": matrix2, "label": 1})
+            label1, label2 = 0, 1
+
+        labeled_data.append({"matrix": matrix1, "label": label1})
+        labeled_data.append({"matrix": matrix2, "label": label2})
 
     return labeled_data
 
 
-def save_labeled_data_to_csv(labeled_data, filename="labeled_trajectories.csv"):
+def save_labeled_data(labeled_data, filename="labeled_trajectories.npz"):
     """
-    Saves labeled data to a CSV file.
+    Saves labeled data into a compressed .npz file.
     
     Args:
         labeled_data (list of dict): Labeled data with matrices and labels.
-        filename (str): Name of the CSV file.
+        filename (str): Name of the file to save.
     """
-    with open(filename, mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["matrix", "label"])
+    matrices = [entry["matrix"] for entry in labeled_data]
+    labels = [entry["label"] for entry in labeled_data]
 
-        for entry in labeled_data:
-            matrix_str = str(entry["matrix"].tolist())
-            writer.writerow([matrix_str, entry["label"]])
+    np.savez_compressed(filename, matrices=matrices, labels=labels)
     
     
     def advantage_calculation(
