@@ -24,10 +24,14 @@ if __name__ == "__main__":
         ppo.collect_rollout_data()
 
         # trajectories
-        # habe self.preference_database
+        # habe self.trajectory_database
         # jetzt nehme ich zufällige segmente raus, label sie
         # speichere sie in labeled data, die labels müssen mit den trajektorien gespeichert werden
         # damit trainiere ich dann
+
+        ppo.get_labeled_data()
+        print(ppo.labeled_data)
+        break
 
         ppo.train_reward_model()
         ppo.advantage_calculation()

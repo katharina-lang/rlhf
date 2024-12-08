@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import tyro
 from torch.utils.tensorboard import SummaryWriter
 from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
@@ -61,8 +60,12 @@ class PPO:
             ).to(self.device)
             self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
             # Store preference data (pairs of trajectories)
-            self.preference_database = []
+            self.trajectory_database = (
+                []
+            )  # should this be reset after every reward model training?
             self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
+            self.segment_size = 60
+            self.labeled_data = []
 
     def collect_rollout_data(self):
         # Collect rollout data at each step
@@ -99,7 +102,7 @@ class PPO:
                 # If the environment resets, save the trajectory and start a new one
                 if terminations[env_idx] or truncations[env_idx]:
                     trajectories = self.trajectory_buffers[env_idx]
-                    self.preference_database.append(trajectories)
+                    self.trajectory_database.append(trajectories)
                     self.trajectory_buffers[env_idx] = []
 
                 # If reward model is provided
@@ -284,7 +287,65 @@ class PPO:
 
     def train_reward_model(self):
         """Train reward model from preferences."""
-        return
+
+        self.trajectory_database = []
+        self.labeled_data = []
+
+    def preference_elicitation(self, segment_one, segment_two):
+        inputOne, rewardOne = segment_one
+        inputTwo, rewardTwo = segment_two
+
+        if rewardOne > rewardTwo:
+            labelOne = 1
+            labelTwo = 0
+        elif rewardTwo > rewardOne:
+            labelOne = 0
+            labelTwo = 1
+        else:
+            labelOne = labelTwo = 0.5
+
+        return (inputOne, labelOne), (inputTwo, labelTwo)
+
+    def select_segments(self):
+        db_length = len(self.trajectory_database)
+        segments = []
+
+        for id in range(db_length):
+            start_idx = np.random.randint(
+                0, len(self.trajectory_database[id]) - self.segment_size
+            )
+            if len(self.trajectory_database[id]) < self.segment_size:
+                continue
+
+            segment = self.trajectory_database[id][
+                start_idx : start_idx + self.segment_size
+            ]
+            segment_rewards = sum([snapshot["reward"] for snapshot in segment])
+            # for snapshot in segment:
+            #     print(snapshot["action"])
+            segment_obs_action_matrix = [
+                np.concatenate([snapshot["obs"], snapshot["action"]])
+                for snapshot in segment
+            ]
+            segments.append((segment_obs_action_matrix, segment_rewards))
+
+        return segments
+
+    def get_labeled_data(self):
+        segments = self.select_segments()
+        while len(segments) > 1:
+            segment_one = segments.pop()
+            segment_two = segments.pop()
+            labeledOne, labeledTwo = self.preference_elicitation(
+                segment_one, segment_two
+            )
+            self.labeled_data.append(labeledOne)
+            self.labeled_data.append(labeledTwo)
+            # should this be reset after every training?
+
+            # print(segment_one)
+            # # i expect this to be a tuple , (input, rewrds)
+            # break
 
 
 class PPOSetup:
