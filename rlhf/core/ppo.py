@@ -138,82 +138,91 @@ class PPO:
                             self.global_step,
                         )
 
-def create_matrices_from_trajectories(trajectory_buffers, sequence_length=60):
-    """
-    Converts trajectory buffers into matrices of observations and actions.
+    def create_matrices_from_trajectories(trajectory_buffers, sequence_length=60):
+        """
+        Converts trajectory buffers into matrices of observations and actions.
+        
+        Args:
+            trajectory_buffers (list of list of dict]): Trajectory buffers for each environment.
+            sequence_length (int): Number of frames per sequence.
+        
+        Returns:
+            list of np.ndarray: List of matrices, each with shape (sequence_length, 2).
+        """
+        matrices = []
+        for buffer in trajectory_buffers:
+            if len(buffer) < sequence_length:
+                continue
+
+            for start_idx in range(len(buffer) - sequence_length + 1):
+                sequence = buffer[start_idx:start_idx + sequence_length]
+                matrix = np.array([[entry["obs"], entry["action"]] for entry in sequence])
+                matrices.append(matrix)
+        return matrices
+
+
+    def compare_and_label_sequences(matrices, rewards, num_pairs=10):
+        """
+        Compares random pairs of sequences and assigns labels based on cumulative rewards.
+        
+        Args:
+            matrices (list of np.ndarray): List of matrices for each trajectory.
+            rewards (list of list of float): Rewards corresponding to each trajectory.
+            num_pairs (int): Number of sequence pairs to compare.
+        
+        Returns:
+            list of dict: Each entry contains:
+                        - "matrix": Matrix of observations and actions.
+                        - "label": Label assigned (0, 0.5, 1).
+        """
+        labeled_data = []
+
+        # Convert rewards into cumulative rewards for all sequences
+        cumulative_rewards = [
+            sum(rewards[start_idx:start_idx + matrix.shape[0]])
+            for start_idx, matrix in enumerate(matrices)
+        ]
+
+        for _ in range(num_pairs):
+            idx1, idx2 = random.sample(range(len(matrices)), 2)
+            matrix1, matrix2 = matrices[idx1], matrices[idx2]
+            reward1, reward2 = cumulative_rewards[idx1], cumulative_rewards[idx2]
+
+            if reward1 == reward2:
+                label1, label2 = 0.5, 0.5
+            elif reward1 > reward2:
+                label1, label2 = 1, 0
+            else:
+                label1, label2 = 0, 1
+
+            labeled_data.append({"matrix": matrix1, "label": label1})
+            labeled_data.append({"matrix": matrix2, "label": label2})
+
+        return labeled_data
+
+
+    def save_labeled_data(labeled_data, filename="labeled_trajectories.npz"):
+        """
+        Saves labeled data into a compressed .npz file.
+        
+        Args:
+            labeled_data (list of dict): Labeled data with matrices and labels.
+            filename (str): Name of the file to save.
+        """
+        matrices = [entry["matrix"] for entry in labeled_data]
+        labels = [entry["label"] for entry in labeled_data]
+
+        np.savez_compressed(filename, matrices=matrices, labels=labels)
     
-    Args:
-        trajectory_buffers (list of list of dict]): Trajectory buffers for each environment.
-        sequence_length (int): Number of frames per sequence.
-    
-    Returns:
-        list of np.ndarray: List of matrices, each with shape (sequence_length, 2).
     """
-    matrices = []
-    for buffer in trajectory_buffers:
-        if len(buffer) < sequence_length:
-            continue
+    Das Laden aus der npz-Datei kann dann wie folgt erfolgen:
 
-        for start_idx in range(len(buffer) - sequence_length + 1):
-            sequence = buffer[start_idx:start_idx + sequence_length]
-            matrix = np.array([[entry["obs"], entry["action"]] for entry in sequence])
-            matrices.append(matrix)
-    return matrices
-
-
-def compare_and_label_sequences(matrices, rewards, num_pairs=10):
+    def load_labeled_data(filename="labeled_trajectories.npz"):
+        data = np.load(filename)
+        matrices = data["matrices"]
+        labels = data["labels"]
+        return matrices, labels         # returns a tuple containing matrices and labels as NumPy arrays
     """
-    Compares random pairs of sequences and assigns labels based on cumulative rewards.
-    
-    Args:
-        matrices (list of np.ndarray): List of matrices for each trajectory.
-        rewards (list of list of float): Rewards corresponding to each trajectory.
-        num_pairs (int): Number of sequence pairs to compare.
-    
-    Returns:
-        list of dict: Each entry contains:
-                      - "matrix": Matrix of observations and actions.
-                      - "label": Label assigned (0, 0.5, 1).
-    """
-    labeled_data = []
-
-    # Convert rewards into cumulative rewards for all sequences
-    cumulative_rewards = [
-        sum(rewards[start_idx:start_idx + matrix.shape[0]])
-        for start_idx, matrix in enumerate(matrices)
-    ]
-
-    for _ in range(num_pairs):
-        idx1, idx2 = random.sample(range(len(matrices)), 2)
-        matrix1, matrix2 = matrices[idx1], matrices[idx2]
-        reward1, reward2 = cumulative_rewards[idx1], cumulative_rewards[idx2]
-
-        if reward1 == reward2:
-            label1, label2 = 0.5, 0.5
-        elif reward1 > reward2:
-            label1, label2 = 1, 0
-        else:
-            label1, label2 = 0, 1
-
-        labeled_data.append({"matrix": matrix1, "label": label1})
-        labeled_data.append({"matrix": matrix2, "label": label2})
-
-    return labeled_data
-
-
-def save_labeled_data(labeled_data, filename="labeled_trajectories.npz"):
-    """
-    Saves labeled data into a compressed .npz file.
-    
-    Args:
-        labeled_data (list of dict): Labeled data with matrices and labels.
-        filename (str): Name of the file to save.
-    """
-    matrices = [entry["matrix"] for entry in labeled_data]
-    labels = [entry["label"] for entry in labeled_data]
-
-    np.savez_compressed(filename, matrices=matrices, labels=labels)
-    
     
     def advantage_calculation(
         self,
