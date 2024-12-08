@@ -3,8 +3,8 @@ import time
 import torch
 import numpy as np
 import tyro
-from configs.arguments import Args
-from core.ppo import PPO
+from rlhf.configs.arguments import Args
+from rlhf.core.ppo import PPO
 
 
 if __name__ == "__main__":
