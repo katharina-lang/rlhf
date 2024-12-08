@@ -138,7 +138,7 @@ class PPO:
                             self.global_step,
                         )
 
-    def create_matrices_from_trajectories(trajectory_buffers, sequence_length=60):
+    def create_matrices_from_trajectories(self, trajectory_buffers, sequence_length=60):
         """
         Converts trajectory buffers into matrices of observations and actions.
         
@@ -161,7 +161,7 @@ class PPO:
         return matrices
 
 
-    def compare_and_label_sequences(matrices, rewards, num_pairs=10):
+    def compare_and_label_sequences(self, matrices, rewards, num_pairs=10):
         """
         Compares random pairs of sequences and assigns labels based on cumulative rewards.
         
@@ -201,7 +201,7 @@ class PPO:
         return labeled_data
 
 
-    def save_labeled_data(labeled_data, filename="labeled_trajectories.npz"):
+    def save_labeled_data(self, labeled_data, filename="labeled_trajectories.npz"):
         """
         Saves labeled data into a compressed .npz file.
         
@@ -223,6 +223,12 @@ class PPO:
         labels = data["labels"]
         return matrices, labels         # returns a tuple containing matrices and labels as NumPy arrays
     """
+
+    def load_labeled_data(self, filename="labeled_trajectories.npz"):
+        data = np.load(filename)
+        matrices = data["matrices"]
+        labels = data["labels"]
+        return matrices, labels         # returns a tuple containing matrices and labels as NumPy arrays
     
     def advantage_calculation(
         self,
