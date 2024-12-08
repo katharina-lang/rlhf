@@ -3,3 +3,5 @@ venv/
 runs/
 models/
 videos/
+.flake8
+scratch/
