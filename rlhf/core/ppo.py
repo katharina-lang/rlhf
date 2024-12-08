@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import tyro
+import csv
+import random
 from torch.utils.tensorboard import SummaryWriter
 from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
@@ -136,6 +138,95 @@ class PPO:
                             self.global_step,
                         )
 
+def create_matrices_from_trajectories(trajectory_buffers, sequence_length=60):
+    """
+    Converts trajectory buffers into matrices of observations and actions.
+    
+    Args:
+        trajectory_buffers (list of list of dict): Trajectory buffers for each environment.
+        sequence_length (int): Number of frames per sequence.
+    
+    Returns:
+        list of np.ndarray: List of matrices, each of shape (sequence_length, 2).
+    """
+    matrices = []
+
+    for env_idx, buffer in enumerate(trajectory_buffers):
+        if len(buffer) < sequence_length:
+            continue
+
+        for start_idx in range(len(buffer) - sequence_length + 1):
+            sequence = buffer[start_idx:start_idx + sequence_length]
+
+            # Create matrix with observations and actions
+            matrix = np.array([
+                [entry["obs"], entry["action"]] for entry in sequence
+            ])
+
+            matrices.append(matrix)
+
+    return matrices
+
+
+def assign_labels_to_random_sequences(trajectory_buffers, matrices, num_pairs=10, sequence_length=60):
+    """
+    Randomly selects pairs of matrices to assign labels based on cumulative rewards.
+    
+    Args:
+        trajectory_buffers (list of list of dict): Trajectory buffers for each environment.
+        matrices (list of np.ndarray): List of matrices with observations and actions.
+        num_pairs (int): Number of pairs to label.
+        sequence_length (int): Number of frames per sequence.
+    
+    Returns:
+        list of dict: Each entry contains:
+                      - "matrix": Matrix of observations and actions.
+                      - "label": Label assigned (0, 0.5, 1).
+    """
+    labeled_data = []
+
+    for _ in range(num_pairs):
+        # Randomly select two sequences
+        idx1, idx2 = random.sample(range(len(matrices)), 2)
+        matrix1, matrix2 = matrices[idx1], matrices[idx2]
+
+        # Compute cumulative rewards for the selected sequences
+        seq1_rewards = [entry["reward"] for entry in trajectory_buffers[0][idx1:idx1 + sequence_length]]
+        seq2_rewards = [entry["reward"] for entry in trajectory_buffers[0][idx2:idx2 + sequence_length]]
+        cumulative_reward1 = sum(seq1_rewards)
+        cumulative_reward2 = sum(seq2_rewards)
+
+        # Assign labels based on rewards
+        if cumulative_reward1 == cumulative_reward2:
+            labeled_data.append({"matrix": matrix1, "label": 0.5})
+            labeled_data.append({"matrix": matrix2, "label": 0.5})
+        elif cumulative_reward1 > cumulative_reward2:
+            labeled_data.append({"matrix": matrix1, "label": 1})
+            labeled_data.append({"matrix": matrix2, "label": 0})
+        else:
+            labeled_data.append({"matrix": matrix1, "label": 0})
+            labeled_data.append({"matrix": matrix2, "label": 1})
+
+    return labeled_data
+
+
+def save_labeled_data_to_csv(labeled_data, filename="labeled_trajectories.csv"):
+    """
+    Saves labeled data to a CSV file.
+    
+    Args:
+        labeled_data (list of dict): Labeled data with matrices and labels.
+        filename (str): Name of the CSV file.
+    """
+    with open(filename, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["matrix", "label"])
+
+        for entry in labeled_data:
+            matrix_str = str(entry["matrix"].tolist())
+            writer.writerow([matrix_str, entry["label"]])
+    
+    
     def advantage_calculation(
         self,
     ):
