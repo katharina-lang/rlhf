@@ -5,4 +5,5 @@ models/
 videos/
 .flake8
 scratch/
-.DS_Store
+.DS_Store/
+virtual_env/
