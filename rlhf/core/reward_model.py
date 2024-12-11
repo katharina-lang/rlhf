@@ -16,6 +16,7 @@ class RewardModel(nn.Module):
             nn.Linear(hidden_dim, 64),
             nn.ReLU(),
             nn.Linear(64, 1),
+            nn.Tanh(),
         )
 
     def forward(self, x):

@@ -55,19 +55,28 @@ class PPO:
 
         # reward model setup
         if reward_model:
-            self.reward_model = RewardModel(
-                input_dim=np.prod(self.envs.single_observation_space.shape)
-            ).to(self.device)
+            self.segment_size = 60
+            obs_dim = np.prod(self.envs.single_observation_space.shape)
+            action_dim = np.prod(self.envs.single_action_space.shape)
+            input_dim = obs_dim + action_dim
+
+            self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
             self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
             # Store preference data (pairs of trajectories)
             self.trajectory_database = (
                 []
             )  # should this be reset after every reward model training?
             self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
-            self.segment_size = 60
             self.labeled_data = []
 
+            self.obs_action_pair_buffer = None
+            self.true_reward_buffer = None
+            self.predicted_rewards_buffer = None
+
     def collect_rollout_data(self):
+        obs_action_pair_list = []
+        true_reward_list = []
+        predicted_reward_list = []
         # Collect rollout data at each step
         # One trajectorie per env
         for step in range(0, self.args.num_steps):
@@ -85,39 +94,45 @@ class PPO:
             self.logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, self.env_rewards, terminations, truncations, infos = (
+            next_obs, self.true_rewards, terminations, truncations, infos = (
                 self.envs.step(action.cpu().numpy())
             )
 
-            # Append data to trajectory buffers
-            for env_idx in range(self.args.num_envs):
-                self.trajectory_buffers[env_idx].append(
-                    {
-                        "obs": self.next_obs[env_idx].cpu().numpy(),
-                        "action": action[env_idx].cpu().numpy(),
-                        "reward": self.env_rewards[env_idx],
-                    }
+            state_action_pairs = np.hstack([self.next_obs, action.cpu().numpy()])
+            with torch.no_grad():
+                self.predicted_rewards = self.reward_model(
+                    torch.tensor(state_action_pairs)
                 )
 
-                # If the environment resets, save the trajectory and start a new one
-                if terminations[env_idx] or truncations[env_idx]:
-                    trajectories = self.trajectory_buffers[env_idx]
-                    self.trajectory_database.append(trajectories)
-                    self.trajectory_buffers[env_idx] = []
+            if self.obs_action_pair_buffer is None:
+                self.obs_action_pair_buffer = state_action_pairs
+            else:
+                self.obs_action_pair_buffer = np.hstack(
+                    [self.obs_action_pair_buffer, state_action_pairs]
+                )
 
-                # If reward model is provided
-                if self.reward_model:
-                    with torch.no_grad():
-                        predicet_reward = self.reward_model(
-                            torch.Tensor(next_obs).to(self.device)
-                        )
-                    reward = predicet_reward.cpu().numpy().squeeze()
-                else:
-                    reward = self.env_rewards
+            self.true_rewards = self.true_rewards.reshape(self.args.num_envs, 1)
+
+            if self.true_reward_buffer is None:
+                self.true_reward_buffer = self.true_rewards
+            else:
+                self.true_reward_buffer = np.hstack(
+                    [self.true_reward_buffer, self.true_rewards]
+                )
+
+            if self.predicted_rewards_buffer is None:
+                self.predicted_rewards_buffer = self.predicted_rewards.numpy()
+            else:
+
+                self.predicted_rewards_buffer = np.hstack(
+                    [self.predicted_rewards_buffer, self.predicted_rewards.numpy()]
+                )
 
             # Data Storage
             self.next_done = np.logical_or(terminations, truncations)
-            self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
+            self.rewards[step] = (
+                torch.tensor(self.predicted_rewards).to(self.device).view(-1)
+            )
             self.next_obs, self.next_done = torch.Tensor(next_obs).to(
                 self.device
             ), torch.Tensor(self.next_done).to(self.device)
@@ -138,6 +153,25 @@ class PPO:
                             info["episode"]["l"],
                             self.global_step,
                         )
+
+        obs_dim = np.prod(self.envs.single_observation_space.shape)
+        action_dim = np.prod(self.envs.single_action_space.shape)
+        input_dim = obs_dim + action_dim
+        self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
+            self.args.num_envs, -1, input_dim
+        )
+        # habe 2 envs, und für jeden der 2048 steps steht eine liste mit den obs_actions
+        # flach machen, so das es nur noch eine trajektorie gibt
+        self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(1, -1, 23)
+        self.true_reward_buffer = self.true_reward_buffer.reshape(1, -1)
+        self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(1, -1)
+
+        # print(self.obs_action_pair_buffer)
+        # print(self.obs_action_pair_buffer.shape)
+        # print(self.true_reward_buffer.shape)
+        # print(self.predicted_rewards_buffer.shape)
+
+        # raise Exception
 
     def advantage_calculation(
         self,
@@ -286,27 +320,119 @@ class PPO:
         )
 
     def train_reward_model(self):
+        return
         """Train reward model from preferences."""
+        if not self.labeled_data:
+            print("No labeled data available for training.")
+            return
 
-        self.trajectory_database = []
-        self.labeled_data = []
+        self.reward_model.train()
+        optimizer = self.reward_optimizer
+
+        # Anzahl der Trainingsepochen
+        epochs = 10
+        batch_size = 32
+
+        for epoch in range(epochs):
+            random.shuffle(self.labeled_data)
+            for i in range(0, len(self.labeled_data), batch_size):
+                batch = self.labeled_data[i : i + batch_size]
+                inputs1, inputs2, preferences = zip(*batch)
+                preferences = torch.tensor(preferences, dtype=torch.float32).to(
+                    self.device
+                )
+
+                # Segmente vorbereiten
+                rewards1 = [
+                    torch.sum(
+                        self.reward_model(
+                            torch.tensor(segment, dtype=torch.float32)
+                            .view(1, -1)
+                            .to(self.device)
+                        )
+                    )
+                    for segment in inputs1
+                ]
+                rewards2 = [
+                    torch.sum(
+                        self.reward_model(
+                            torch.tensor(segment, dtype=torch.float32)
+                            .view(1, -1)
+                            .to(self.device)
+                        )
+                    )
+                    for segment in inputs2
+                ]
+
+                rewards1 = torch.stack(rewards1)  # [batch_size]
+                rewards2 = torch.stack(rewards2)  # [batch_size]
+
+                # Wahrscheinlichkeiten gemäß Bradley-Terry-Modell
+                probabilities = torch.sigmoid(rewards1 - rewards2)
+
+                # Kreuzentropie-Verlust
+                loss = -torch.mean(
+                    preferences[:, 0] * torch.log(probabilities + 1e-8)
+                    + preferences[:, 1] * torch.log(1 - probabilities + 1e-8)
+                )
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            # Nach dem Training die gelabelten Daten zurücksetzen
+            self.labeled_data = []
 
     def preference_elicitation(self, segment_one, segment_two):
-        inputOne, rewardOne = segment_one
-        inputTwo, rewardTwo = segment_two
+        segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
+        segment_obs_actionTwo, true_rewardTwo, predicted_rewardTwo = segment_two
 
-        if rewardOne > rewardTwo:
+        if true_rewardOne > true_rewardTwo:
             labelOne = 1
             labelTwo = 0
-        elif rewardTwo > rewardOne:
+        elif true_rewardTwo > true_rewardOne:
             labelOne = 0
             labelTwo = 1
         else:
             labelOne = labelTwo = 0.5
 
-        return (inputOne, labelOne), (inputTwo, labelTwo)
+        return (
+            segment_obs_actionOne,
+            segment_obs_actionTwo,
+            (labelOne, labelTwo),
+            (predicted_rewardOne, predicted_rewardTwo),
+        )
 
     def select_segments(self):
+
+        self.obs_action_pair_buffer
+        self.true_reward_buffer
+        self.predicted_rewards_buffer
+        data_points = self.true_reward_buffer.shape[1]
+
+        # segment amount
+        segment_amount = data_points // self.segment_size
+
+        segments = []
+        for _ in range(segment_amount):
+            start_idx = np.random.randint(0, data_points - self.segment_size)
+            end_idx = start_idx + self.segment_size
+            segment_obs_action = self.obs_action_pair_buffer[start_idx:end_idx]
+            true_reward = sum(self.true_reward_buffer[start_idx:end_idx])
+            predicted_reward = sum(self.predicted_rewards_buffer[start_idx:end_idx])
+            segment = (segment_obs_action, true_reward, predicted_reward)
+            segments.append(segment)
+
+        self.obs_action_pair_buffer = None
+        self.true_reward_buffer = None
+        self.predicted_rewards_buffer = None
+
+        return segments
+
+        self.obs_action_pair_buffer = self.obs_action_pair_buffer.flatten()
+        self.true_reward_buffer = self.true_reward_buffer.flatten()
+        self.predicted_rewards_buffer = self.predicted_rewards_buffer.flatten()
+
         db_length = len(self.trajectory_database)
         segments = []
 
@@ -327,25 +453,45 @@ class PPO:
                 np.concatenate([snapshot["obs"], snapshot["action"]])
                 for snapshot in segment
             ]
-            segments.append((segment_obs_action_matrix, segment_rewards))
 
+            segment_flat = np.array(segment_obs_action_matrix).flatten()
+            segments.append((segment_flat, segment_rewards))
+
+            # segments.append((segment_obs_action_matrix, segment_rewards))
+            # vielleicht jeweils noch die summierten predicteten rewards zurückgeben # TODO
         return segments
 
     def get_labeled_data(self):
+        """
+        one element of labeld_data looks like the following:
+        (
+            segment_obs_actionOne,
+            segment_obs_actionTwo,
+            (labelOne, labelTwo),
+            (predicted_rewardOne, predicted_rewardTwo),
+        )
+        where the obs_action is the input for the reward model
+        and predicted_rewardOne is the total reward for segment One
+        """
         segments = self.select_segments()
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()
-            labeledOne, labeledTwo = self.preference_elicitation(
+            segments_label_reward = self.preference_elicitation(
                 segment_one, segment_two
-            )
-            self.labeled_data.append(labeledOne)
-            self.labeled_data.append(labeledTwo)
-            # should this be reset after every training?
+            )  # kann hier auch einfach das triple zurückgeben
+            self.labeled_data.append(segments_label_reward)
 
-            # print(segment_one)
-            # # i expect this to be a tuple , (input, rewrds)
-            # break
+        # nach jeden labeln reseten
+        self.trajectory_database = []
+
+        # label nach jedem training reseten
+
+        # should this be reset after every training?
+
+        # print(segment_one)
+        # # i expect this to be a tuple , (input, rewrds)
+        # break
 
 
 class PPOSetup:

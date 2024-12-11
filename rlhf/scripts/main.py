@@ -30,10 +30,10 @@ if __name__ == "__main__":
         # damit trainiere ich dann
 
         ppo.get_labeled_data()
-        print(ppo.labeled_data)
-        break
 
-        ppo.train_reward_model()
+        if len(ppo.labeled_data) > 10:
+            ppo.train_reward_model()
+
         ppo.advantage_calculation()
         ppo.optimize_agent_and_critic()
 
