@@ -7,9 +7,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import tyro
-import csv
-import random
 from torch.utils.tensorboard import SummaryWriter
 from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
@@ -58,178 +55,88 @@ class PPO:
 
         # reward model setup
         if reward_model:
-            self.reward_model = RewardModel(
-                input_dim=np.prod(self.envs.single_observation_space.shape)
-            ).to(self.device)
+            self.segment_size = 60
+            obs_dim = np.prod(self.envs.single_observation_space.shape)
+            action_dim = np.prod(self.envs.single_action_space.shape)
+            input_dim = obs_dim + action_dim
+
+            self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
             self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
             # Store preference data (pairs of trajectories)
-            self.preference_database = []
+            self.trajectory_database = (
+                []
+            )  # should this be reset after every reward model training?
             self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
+            self.labeled_data = []
+
+            self.obs_action_pair_buffer = None
+            self.true_reward_buffer = None
+            self.predicted_rewards_buffer = None
 
     def collect_rollout_data(self):
-        # Collect rollout data at each step
-        # One trajectorie per env
-        for step in range(0, self.args.num_steps):
+        for step in range(self.args.num_steps):
             self.global_step += self.args.num_envs
             self.obs[step] = self.next_obs
             self.dones[step] = self.next_done
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = self.agent.get_action_and_value(
-                    self.next_obs
-                )
+                action, logprob, _, value = self.agent.get_action_and_value(self.next_obs)
                 self.values[step] = value.flatten()
+
             self.actions[step] = action
             self.logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, self.env_rewards, terminations, truncations, infos = (
-                self.envs.step(action.cpu().numpy())
-            )
+            next_obs, self.true_rewards, terminations, truncations, infos = self.envs.step(action.cpu().numpy())
+            state_action_pairs = np.hstack([self.next_obs.cpu().numpy(), action.cpu().numpy()])
 
-            # Append data to trajectory buffers
-            for env_idx in range(self.args.num_envs):
-                self.trajectory_buffers[env_idx].append(
-                    {
-                        "obs": self.next_obs[env_idx].cpu().numpy(),
-                        "action": action[env_idx].cpu().numpy(),
-                        "reward": self.env_rewards[env_idx],
-                    }
-                )
+            self.predicted_rewards = self.compute_predicted_rewards(state_action_pairs)
+            self.update_buffers(state_action_pairs, self.true_rewards, self.predicted_rewards)
 
-                # If the environment resets, save the trajectory and start a new one
-                if terminations[env_idx] or truncations[env_idx]:
-                    trajectories = self.trajectory_buffers[env_idx]
-                    self.preference_database.append(trajectories)
-                    self.trajectory_buffers[env_idx] = []
-
-                # If reward model is provided
-                if self.reward_model:
-                    with torch.no_grad():
-                        predicet_reward = self.reward_model(
-                            torch.Tensor(next_obs).to(self.device)
-                        )
-                    reward = predicet_reward.cpu().numpy().squeeze()
-                else:
-                    reward = self.env_rewards
-
-            # Data Storage
             self.next_done = np.logical_or(terminations, truncations)
-            self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
-            self.next_obs, self.next_done = torch.Tensor(next_obs).to(
-                self.device
-            ), torch.Tensor(self.next_done).to(self.device)
+            self.rewards[step] = torch.tensor(self.predicted_rewards).to(self.device).view(-1)
+            self.next_obs, self.next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(self.next_done).to(self.device)
 
             if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        print(
-                            f"global_step={self.global_step}, episodic_return={info['episode']['r']}"
-                        )
-                        self.writer.add_scalar(
-                            "charts/episodic_return",
-                            info["episode"]["r"],
-                            self.global_step,
-                        )
-                        self.writer.add_scalar(
-                            "charts/episodic_length",
-                            info["episode"]["l"],
-                            self.global_step,
-                        )
+                self.log_episode_info(infos)
 
-    def create_matrices_from_trajectories(self, trajectory_buffers, sequence_length=60):
-        """
-        Converts trajectory buffers into matrices of observations and actions.
-        
-        Args:
-            trajectory_buffers (list of list of dict]): Trajectory buffers for each environment.
-            sequence_length (int): Number of frames per sequence.
-        
-        Returns:
-            list of np.ndarray: List of matrices, each with shape (sequence_length, 2).
-        """
-        matrices = []
-        for buffer in trajectory_buffers:
-            if len(buffer) < sequence_length:
-                continue
+    def compute_predicted_rewards(self, state_action_pairs: np.ndarray) -> np.ndarray:
+        with torch.no_grad():
+            return (
+                self.reward_model(torch.tensor(state_action_pairs, dtype=torch.float32).to(self.device))
+                .cpu()
+                .numpy()
+            )
 
-            for start_idx in range(len(buffer) - sequence_length + 1):
-                sequence = buffer[start_idx:start_idx + sequence_length]
-                matrix = np.array([[entry["obs"], entry["action"]] for entry in sequence])
-                matrices.append(matrix)
-        return matrices
+    def update_buffers(self, state_action_pairs, true_rewards, predicted_rewards):
+        self.obs_action_pair_buffer = (
+            np.vstack([self.obs_action_pair_buffer, state_action_pairs])
+            if self.obs_action_pair_buffer is not None
+            else state_action_pairs
+        )
+        self.true_reward_buffer = (
+            np.vstack([self.true_reward_buffer, true_rewards])
+            if self.true_reward_buffer is not None
+            else true_rewards
+        )
+        self.predicted_rewards_buffer = (
+            np.vstack([self.predicted_rewards_buffer, predicted_rewards])
+            if self.predicted_rewards_buffer is not None
+            else predicted_rewards
+        )
 
+    def log_episode_info(self, infos):
+        for info in infos["final_info"]:
+            if info and "episode" in info:
+                episodic_return = info["episode"]["r"]
+                episodic_length = info["episode"]["l"]
 
-    def compare_and_label_sequences(self, matrices, rewards, num_pairs=10):
-        """
-        Compares random pairs of sequences and assigns labels based on cumulative rewards.
-        
-        Args:
-            matrices (list of np.ndarray): List of matrices for each trajectory.
-            rewards (list of list of float): Rewards corresponding to each trajectory.
-            num_pairs (int): Number of sequence pairs to compare.
-        
-        Returns:
-            list of dict: Each entry contains:
-                        - "matrix": Matrix of observations and actions.
-                        - "label": Label assigned (0, 0.5, 1).
-        """
-        labeled_data = []
+                print(f"global_step={self.global_step}, episodic_return={episodic_return}")
 
-        # Convert rewards into cumulative rewards for all sequences
-        cumulative_rewards = [
-            sum(rewards[start_idx:start_idx + matrix.shape[0]])
-            for start_idx, matrix in enumerate(matrices)
-        ]
-
-        for _ in range(num_pairs):
-            idx1, idx2 = random.sample(range(len(matrices)), 2)
-            matrix1, matrix2 = matrices[idx1], matrices[idx2]
-            reward1, reward2 = cumulative_rewards[idx1], cumulative_rewards[idx2]
-
-            if reward1 == reward2:
-                label1, label2 = 0.5, 0.5
-            elif reward1 > reward2:
-                label1, label2 = 1, 0
-            else:
-                label1, label2 = 0, 1
-
-            labeled_data.append({"matrix": matrix1, "label": label1})
-            labeled_data.append({"matrix": matrix2, "label": label2})
-
-        return labeled_data
+                self.writer.add_scalar("charts/episodic_return", episodic_return, self.global_step)
+                self.writer.add_scalar("charts/episodic_length", episodic_length, self.global_step)
 
 
-    def save_labeled_data(self, labeled_data, filename="labeled_trajectories.npz"):
-        """
-        Saves labeled data into a compressed .npz file.
-        
-        Args:
-            labeled_data (list of dict): Labeled data with matrices and labels.
-            filename (str): Name of the file to save.
-        """
-        matrices = [entry["matrix"] for entry in labeled_data]
-        labels = [entry["label"] for entry in labeled_data]
 
-        np.savez_compressed(filename, matrices=matrices, labels=labels)
-    
-    """
-    Das Laden aus der npz-Datei kann dann wie folgt erfolgen:
-
-    def load_labeled_data(filename="labeled_trajectories.npz"):
-        data = np.load(filename)
-        matrices = data["matrices"]
-        labels = data["labels"]
-        return matrices, labels         # returns a tuple containing matrices and labels as NumPy arrays
-    """
-
-    def load_labeled_data(self, filename="labeled_trajectories.npz"):
-        data = np.load(filename)
-        matrices = data["matrices"]
-        labels = data["labels"]
-        return matrices, labels         # returns a tuple containing matrices and labels as NumPy arrays
-    
     def advantage_calculation(
         self,
     ):
@@ -376,9 +283,158 @@ class PPO:
             self.global_step,
         )
 
+    # Zugriff auf die gelabelten Daten: Tripel (Segment1, Segment2, Label)
+    # Berechnung der Wahrscheinlichkeit, dass Segment1 gegenüber Segment2 preferriert wird
+    # Berechnung der Cross-Entropy-Verlustfunktion
+    # Optimierung des Reward Models mittles Gradientenabstiegsverfahren
     def train_reward_model(self):
-        """Train reward model from preferences."""
-        return
+    
+        if not self.labeled_data:
+            print("Keine gelabelten Daten vorhanden. Training übersprungen.")
+            return
+
+        self.reward_model.train()  # Setze Reward Model in Trainingsmodus
+        optimizer = self.reward_optimizer  # Verwende den Optimizer des PPO-Agenten
+
+        epochs = 10  # Anzahl der Trainingsepochen
+        batch_size = 32
+
+        for epoch in range(epochs):
+            random.shuffle(self.labeled_data)  # Zufällige Durchmischung der Daten
+            for i in range(0, len(self.labeled_data), batch_size):
+                # Labeled Data im Umfang von einem Batch aus labeled_data entnommen (in batch_size-Schritten)
+                batch = self.labeled_data[i:i + batch_size]         
+
+                # Batch-Daten extrahieren
+                # Alle Segmente1, Segmente2 sowie alle Labels in separate Listen geschrieben
+                inputs1, inputs2, labels = zip(*batch)  
+                labels = torch.tensor(labels, dtype=torch.float32).to(self.device)
+
+                # Berechne die Rewards der beiden Segmente
+                # Alle Segmente haben folgendes Format: (segment_obs_action, segment_true_reward, segment_predicted_reward)
+                # Reward Model wird auf jedes Segment angewendet 
+                # -> gibt für jedes Zustands-Aktions-Paar im Segment einen predicted reward
+                rewards1 = [
+                    torch.sum(      # durch torch.sum erhalten wir Gesamtreward
+                        self.reward_model(torch.tensor(segment, dtype=torch.float32).to(self.device))
+                    )
+                    for segment in inputs1
+                ]
+                rewards2 = [
+                    torch.sum(
+                        self.reward_model(torch.tensor(segment, dtype=torch.float32).to(self.device))
+                    )
+                    for segment in inputs2
+                ]
+
+                # rewards1 und rewards2 sind Listen von Tensors
+                # Kombiniert alle Tensors von rewards1 und rewards2 zu einem einzigen Tensor
+                # Die resultierenden Tensors haben jeweils die From [batch_size]
+                rewards1 = torch.stack(rewards1)  
+                rewards2 = torch.stack(rewards2)  
+
+                # Anwendungen der Formeln aus dem Christiano-Paper
+                # Berechne \( P[\sigma^1 > \sigma^2] \)
+                probabilities = torch.sigmoid(rewards1 - rewards2)
+
+                # Berechne Cross-Entropy Loss
+                loss = -torch.mean(
+                    labels * torch.log(probabilities + 1e-8)
+                    + (1 - labels) * torch.log(1 - probabilities + 1e-8)
+                )
+
+                # Backpropagation und Optimierung
+                # Optimierung unseres Reward Models mittels Gradientenabstiegsverfahren
+                optimizer.zero_grad()       # Gradienten aller Parameter des Modells auf 0 gesetzt (sonst würden sich Gradienten von mehreren Backward-Pässen aufaddieren)
+                loss.backward()
+                # Aktualisierung der Modellparameter basierend auf den mit loss.backward() berechneten Gradienten
+                optimizer.step()
+
+        # Nach dem Training die gelabelten Daten zurücksetzen
+        self.labeled_data = []
+
+
+        # Geändert, sodass für jedes Environment eine zusammenhängende Liste von Steps verwendet wird und daraus
+        # zufällige Segmente mit je 60 Steps ausgewählt werden
+        # Für jedes Environment separate Segmentliste erstellt -> Liste von Listen erstellt
+    def select_segments(self):
+
+        segments_per_env = [[] for _ in range(Args.num_envs)]  # Liste von Listen
+
+        for env_id in range(Args.num_envs):
+            # Extrahiere die Liste der Steps, True Rewards und Predicted Rewards für das Environment
+            steps = self.obs_action_pair_buffer[env_id]
+            true_rewards = self.true_reward_buffer[env_id]
+            predicted_rewards = self.predicted_rewards_buffer[env_id]
+
+            # Anzahl der Datenpunkte im aktuellen Environment
+            num_steps = steps.shape[0]
+
+            # Überprüfe, ob genügend Daten für Segmente vorhanden sind
+            if num_steps < self.segment_size:
+                continue
+
+            # Wähle Segmente aus
+            num_segments = num_steps // self.segment_size  # Maximale Anzahl von Segmenten
+            for _ in range(num_segments):
+                # Zufälligen Startindex wählen
+                start_idx = np.random.randint(0, num_steps - self.segment_size)
+                end_idx = start_idx + self.segment_size
+
+                # Segmentdaten extrahieren
+                segment_obs_action = steps[start_idx:end_idx]
+                segment_true_reward = np.sum(true_rewards[start_idx:end_idx])
+                segment_predicted_reward = np.sum(predicted_rewards[start_idx:end_idx])
+
+                # Speichere das Segment
+                segment = (segment_obs_action, segment_true_reward, segment_predicted_reward)
+                segments_per_env[env_id].append(segment)
+
+        # Speicherpuffer nach der Segmentauswahl zurücksetzen
+        self.obs_action_pair_buffer = None
+        self.true_reward_buffer = None
+        self.predicted_rewards_buffer = None
+
+        return segments_per_env  # Liste von Listen, eine pro Environment
+
+        
+
+    def label_segments(self):
+    
+        # Wählt zwei Segmente aus demselben Environment aus und erstellt ein Tripel:
+        # (segment_1, segment_2, label), wobei label 1, 0 oder 0.5 ist, abhängig davon, welcher true reward größer ist.
+        # Speichert die Tripel in der Datenbank labeled_data
+        
+        labeled_triplets = []  # Liste zum Speichern der gelabelten Tripel
+        segments_per_env = self.select_segments()  # Liste von Listen mit Segmenten je Environment
+
+        for env_id, segments in enumerate(segments_per_env):
+            if len(segments) < 2:
+                # Überspringe Environments mit weniger als zwei Segmenten
+                continue
+
+            # Paare von Segmenten innerhalb des gleichen Environments bilden
+            for _ in range(len(segments) // 2):  # Begrenze Anzahl der Vergleiche
+                segment_1 = segments.pop(random.randint(0, len(segments) - 1))
+                segment_2 = segments.pop(random.randint(0, len(segments) - 1))
+
+                true_reward_1 = segment_1[1]  # true reward von Segment 1
+                true_reward_2 = segment_2[1]  # true reward von Segment 2
+
+                # Label bestimmen
+                if true_reward_1 > true_reward_2:
+                    label = 1
+                elif true_reward_1 < true_reward_2:
+                    label = 0
+                else:
+                    label = 0.5
+
+                # Tripel erstellen und speichern
+                triplet = (segment_1, segment_2, label)
+                labeled_triplets.append(triplet)
+
+        # Speichere die gelabelten Daten in der Datenbank
+        self.labeled_data.extend(labeled_triplets)
 
 
 class PPOSetup:
