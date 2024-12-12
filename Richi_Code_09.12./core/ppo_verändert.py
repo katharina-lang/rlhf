@@ -56,7 +56,7 @@ class PPO:
         # reward model setup
         if reward_model:
             self.reward_model = RewardModel(
-                input_dim=np.prod(self.envs.single_observation_space.shape)     # TO DO: Obs und Action zusammen übergeben
+                input_dim=np.prod(self.envs.single_observation_space.shape)     # TO DO: Obs und Action zusammen übergeben --> deshalb single_observation_space.shape + single_action_space.shape zusammenaddieren
             ).to(self.device)
             self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
             # Store preference data (pairs of trajectories)
@@ -96,7 +96,7 @@ class PPO:
                 if self.reward_model:
                     with torch.no_grad():
                         predicet_reward = self.reward_model(            # Zu forward ändern?
-                            torch.Tensor(next_obs).to(self.device)
+                            torch.Tensor(next_obs).to(self.device)      # TO DO: Action/Obs-Paar als Eingabe
                         )
                     reward = predicet_reward.cpu().numpy().squeeze()
                     self.trajectory_buffers[env_idx].append(
@@ -104,13 +104,13 @@ class PPO:
                         "obs": self.next_obs[env_idx].cpu().numpy(),
                         "action": action[env_idx].cpu().numpy(),
                         "reward": self.env_rewards[env_idx],
-                        "predicted_reward": predicet_reward,            # Wir speichern entweder den tatsächlichen Reward oder den predicted Reward mit
+                        "predicted_reward": predicet_reward[env_idx],            # Wir speichern entweder den tatsächlichen Reward oder den predicted Reward mit
                                                                         # Frage: Kann man das auch schöner lösen als mit der if-Bedingung und der Wiederholung des Blocks?
                     }
                 )
                 else:
                     reward = self.env_rewards
-                    self.trajectory_buffers[env_idx].append(
+                    self.trajectory_buffers[env_idx].append(            # Die Trajectory-Database brauchen wir doch eigentlich nur, wenn wir mit Reward_model trainieren oder? Dann brauchen wir das nicht im else
                         {
                             "obs": self.next_obs[env_idx].cpu().numpy(),
                             "action": action[env_idx].cpu().numpy(),
@@ -121,7 +121,7 @@ class PPO:
                 # If the environment resets, save the trajectory and start a new one 
                 if terminations[env_idx] or truncations[env_idx]:
                     trajectories = self.trajectory_buffers[env_idx]
-                    self.trajectory_database.append(trajectories)
+                    self.trajectory_database += trajectories            # Trajectory so angehängt, dass wir eine lange Liste an Trajectories haben
                     self.trajectory_buffers[env_idx] = []
 
 
@@ -338,18 +338,16 @@ class PPO:
         return (inputOne, inputTwo, label, pref_prob1, pref_prob2)
 
 
-    def select_segments(self):
+    def select_pair_of_segments(self):
         db_length = len(self.trajectory_database)
         segments = []
 
-        for id in range(db_length):
-            start_idx = np.random.randint(
-                0, len(self.trajectory_database[id]) - self.segment_size
-            )
-            if len(self.trajectory_database[id]) < self.segment_size:
-                continue
+        start_idx = np.random.randint(
+            0, db_length - self.segment_size
+        )
 
-            segment = self.trajectory_database[id][
+        for idx in range(2):
+            segment = self.trajectory_database[
                 start_idx : start_idx + self.segment_size
             ]
             segment_rewards = sum([snapshot["reward"] for snapshot in segment])
@@ -366,16 +364,13 @@ class PPO:
     
 
     def get_labeled_data(self):
-        segments = self.select_segments()
-        while len(segments) > 1:
-            segment_one = segments.pop()
-            segment_two = segments.pop()
+        for idx in range(self.comparisons_per_epoch):                       # Als Argument einführen: Wie viel Feedback pro Trainingsepoche? --> comparisons_per_epoch
+            segment_one, segment_two = self.select_pair_of_segments()
             labeledPair = self.preference_elicitation(      # an Form-Änderung der gelabelten Paare angepasst
                 segment_one, segment_two
             )
             seg1, seg2, label, pref_prob1, pref_prob2 = labeledPair      # auch noch pref_prob extrahieren
-            if label != 0.5:                                # Überprüfen, ob Label 0.5 ist, da wir diese Paare nicht in unseren Datensatz aufnehmen wollen
-                self.labeled_data.append(labeledPair)
+            self.labeled_data.append(labeledPair)
             # should this be reset after every training?
 
             # print(segment_one)
