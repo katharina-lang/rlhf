@@ -30,6 +30,7 @@ if __name__ == "__main__":
         # damit trainiere ich dann
 
         ppo.get_labeled_data()
+        raise Exception
 
         if len(ppo.labeled_data) > 10:
             ppo.train_reward_model()
