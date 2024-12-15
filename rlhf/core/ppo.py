@@ -64,14 +64,17 @@ class PPO:
             input_dim = obs_dim + action_dim
 
             self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
-            self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
+            # self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
+            self.reward_optimizer = optim.Adam(
+                self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
+            )
 
             self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
             self.labeled_data = []
 
-            self.obs_action_pair_buffer = []
-            self.true_reward_buffer = []
-            self.predicted_rewards_buffer = []
+            self.obs_action_pair_buffer = None
+            self.true_reward_buffer = None
+            self.predicted_rewards_buffer = None
 
     def collect_rollout_data(self):
         # Collect rollout data at each step
@@ -101,8 +104,10 @@ class PPO:
             #     self.device
             # )
 
-            # with torch.no_grad():
-            self.predicted_rewards = self.reward_model(torch.tensor(state_action_pairs))
+            with torch.no_grad():
+                self.predicted_rewards = self.reward_model(
+                    torch.tensor(state_action_pairs)
+                )
 
             if test:
                 if step == 0:
@@ -142,12 +147,16 @@ class PPO:
                 )
 
             if self.predicted_rewards_buffer is None:
-                self.predicted_rewards_buffer = self.predicted_rewards.numpy()
-            else:
+                # self.predicted_rewards_buffer = self.predicted_rewards.numpy()
+                self.predicted_rewards_buffer = self.predicted_rewards
 
-                self.predicted_rewards_buffer = np.hstack(
-                    [self.predicted_rewards_buffer, self.predicted_rewards.numpy()]
+            else:
+                self.predicted_rewards_buffer = torch.cat(
+                    [self.predicted_rewards_buffer, self.predicted_rewards], dim=1
                 )
+                # self.predicted_rewards_buffer = np.hstack(
+                #     [self.predicted_rewards_buffer, self.predicted_rewards.numpy()]
+                # )
 
             # Data Storage
             self.next_done = np.logical_or(terminations, truncations)
@@ -357,42 +366,58 @@ class PPO:
             self.global_step,
         )
 
-    def train_reward_model(self, epochs=2):
+    def train_reward_model(self, epochs=4):
         """Train the reward model using stored predicted rewards."""
         self.reward_model.train()
         optimizer = self.reward_optimizer
 
         for epoch in range(epochs):
-            # Predicted rewards are already connected to the reward model
-            predicted_rewards = self.predicted_rewards_buffer
+            epoch_loss = 0
 
-            labels = torch.tensor(
-                [item[2] for item in self.labeled_data],
-                dtype=torch.float32,
-                device=self.device,
+            for labeled_pair in self.labeled_data:
+                (
+                    segment_obs_actionOne,
+                    segment_obs_actionTwo,
+                    (labelOne, labelTwo),
+                    (predicted_rewardOne, predicted_rewardTwo),
+                ) = labeled_pair
+
+                segment_obs_actionOne = torch.tensor(segment_obs_actionOne)
+                segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo)
+
+                predicted_rewardOne = self.reward_model(segment_obs_actionOne).sum()
+                predicted_rewardTwo = self.reward_model(segment_obs_actionTwo).sum()
+                labels = torch.tensor(
+                    [labelOne, labelTwo],
+                    dtype=torch.float32,
+                    device=self.device,
+                )
+
+                prob_one = torch.exp(predicted_rewardOne) / (
+                    torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
+                )
+
+                prob_two = 1 - prob_one
+
+                loss = -torch.mean(
+                    labels[0] * torch.log(prob_one + 1e-8)
+                    + labels[1] * torch.log(prob_two + 1e-8)
+                )
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                epoch_loss += loss.item()
+
+            print(
+                f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(self.labeled_data):.4f}"
             )
 
-            predicted_reward_one = predicted_rewards[self.labeled_data[:, 0]]
-            predicted_reward_two = predicted_rewards[self.labeled_data[:, 1]]
-
-            prob_one = torch.exp(predicted_reward_one) / (
-                torch.exp(predicted_reward_one) + torch.exp(predicted_reward_two)
-            )
-            prob_two = 1 - prob_one
-
-            loss = -torch.mean(
-                labels[:, 0] * torch.log(prob_one + 1e-8)
-                + labels[:, 1] * torch.log(prob_two + 1e-8)
-            )
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.4f}")
-
-        # Buffer leeren nach Training
-        self.predicted_rewards_buffer = []
+        # Clear buffers after training
+        self.obs_action_pair_buffer = None
+        self.true_reward_buffer = None
+        self.predicted_rewards_buffer = None
         self.labeled_data = []
 
     def preference_elicitation(self, segment_one, segment_two):
@@ -430,7 +455,7 @@ class PPO:
             end_idx = start_idx + self.segment_size
             segment_obs_action = self.obs_action_pair_buffer[start_idx:end_idx]
             true_reward = sum(self.true_reward_buffer[start_idx:end_idx])
-            predicted_reward = sum(self.predicted_rewards_buffer[start_idx:end_idx])
+            predicted_reward = self.predicted_rewards_buffer[start_idx:end_idx]
             segment = (segment_obs_action, true_reward, predicted_reward)
             segments.append(segment)
 
@@ -466,6 +491,10 @@ class PPO:
             self.labeled_data.append(segments_label_reward)
         # print("labeld:data")
         # print(self.labeled_data)
+        # print()
+        # print()
+        # print("stop")
+        # raise Exception
 
 
 class PPOSetup:
