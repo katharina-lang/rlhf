@@ -69,9 +69,9 @@ class PPO:
             self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
             self.labeled_data = []
 
-            self.obs_action_pair_buffer = None
-            self.true_reward_buffer = None
-            self.predicted_rewards_buffer = None
+            self.obs_action_pair_buffer = []
+            self.true_reward_buffer = []
+            self.predicted_rewards_buffer = []
 
     def collect_rollout_data(self):
         # Collect rollout data at each step
@@ -97,24 +97,20 @@ class PPO:
             )
 
             state_action_pairs = np.hstack([self.next_obs, action.cpu().numpy()])
-            with torch.no_grad():
-                self.predicted_rewards = self.reward_model(
-                    torch.tensor(state_action_pairs)
-                )
+            # state_action_pairs = torch.cat([self.next_obs, action], dim=1).to(
+            #     self.device
+            # )
+
+            # with torch.no_grad():
+            self.predicted_rewards = self.reward_model(torch.tensor(state_action_pairs))
 
             if test:
                 if step == 0:
-                    print(state_action_pairs.shape)
                     state_action_pairs = np.array(
                         [[1, 2, 3, 4, 5], [11, 12, 13, 14, 15]]
                     )
-                    print(state_action_pairs.shape)
-                    print(self.true_rewards.shape)
                     self.true_rewards = np.array([0.01, 0.03])
-                    print(self.true_rewards.shape)
-                    print(self.predicted_rewards.shape)
                     self.predicted_rewards = torch.tensor(np.array([[0.05], [0.07]]))
-                    print(self.predicted_rewards.shape)
 
                 if step == 1:
                     state_action_pairs = np.array(
@@ -196,7 +192,6 @@ class PPO:
                     print(self.true_reward_buffer)
                     print(self.predicted_rewards_buffer)
                     return
-                    raise Exception
 
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
@@ -205,19 +200,16 @@ class PPO:
             self.args.num_envs, -1, input_dim
         )
 
-        # habe 2 envs, und für jeden der 2048 steps steht eine liste mit den obs_actions
-        # flach machen, so das es nur noch eine trajektorie gibt
-
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
         self.true_reward_buffer = self.true_reward_buffer.reshape(-1)
         self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
 
-        # print(self.obs_action_pair_buffer)
-        print(self.obs_action_pair_buffer.shape)
-        print(self.true_reward_buffer.shape)
-        # print(self.true_reward_buffer)
-        print(self.predicted_rewards_buffer.shape)
-        raise Exception
+        # # print(self.obs_action_pair_buffer)
+        # print(self.obs_action_pair_buffer.shape)
+        # print(self.true_reward_buffer.shape)
+        # # print(self.true_reward_buffer)
+        # print(self.predicted_rewards_buffer.shape)
+        # raise Exception
 
     def advantage_calculation(
         self,
@@ -365,36 +357,43 @@ class PPO:
             self.global_step,
         )
 
-    def train_reward_model(self):
-        """Train reward model from preferences."""
-        return
-        if not self.labeled_data:
-            print("No labeled data available for training.")
-            return
-
+    def train_reward_model(self, epochs=2):
+        """Train the reward model using stored predicted rewards."""
         self.reward_model.train()
         optimizer = self.reward_optimizer
 
-        # Anzahl der Trainingsepochen
-        epochs = 10
-        batch_size = 32
-
         for epoch in range(epochs):
-            # Kreuzentropie-Verlust
+            # Predicted rewards are already connected to the reward model
+            predicted_rewards = self.predicted_rewards_buffer
+
+            labels = torch.tensor(
+                [item[2] for item in self.labeled_data],
+                dtype=torch.float32,
+                device=self.device,
+            )
+
+            predicted_reward_one = predicted_rewards[self.labeled_data[:, 0]]
+            predicted_reward_two = predicted_rewards[self.labeled_data[:, 1]]
+
+            prob_one = torch.exp(predicted_reward_one) / (
+                torch.exp(predicted_reward_one) + torch.exp(predicted_reward_two)
+            )
+            prob_two = 1 - prob_one
+
             loss = -torch.mean(
-                preferences[:, 0] * torch.log(probabilities + 1e-8)
-                + preferences[:, 1] * torch.log(1 - probabilities + 1e-8)
+                labels[:, 0] * torch.log(prob_one + 1e-8)
+                + labels[:, 1] * torch.log(prob_two + 1e-8)
             )
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            # Nach dem Training die gelabelten Daten zurücksetzen
-            self.labeled_data = []
+            print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.4f}")
 
-    def train_one_epoch():
-        pass
+        # Buffer leeren nach Training
+        self.predicted_rewards_buffer = []
+        self.labeled_data = []
 
     def preference_elicitation(self, segment_one, segment_two):
         segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
@@ -465,11 +464,8 @@ class PPO:
                 segment_one, segment_two
             )
             self.labeled_data.append(segments_label_reward)
-
         # print("labeld:data")
         # print(self.labeled_data)
-
-        # label nach jedem training reseten?
 
 
 class PPOSetup:
