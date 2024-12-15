@@ -55,8 +55,10 @@ class PPO:
 
         # reward model setup
         if reward_model:
+            obs_shape = self.envs.single_observation_space.shape
+            action_shape = self.envs.single_action_space.shape
             self.reward_model = RewardModel(
-                input_dim=np.prod(self.envs.single_observation_space.shape)     # TO DO: Obs und Action zusammen übergeben --> deshalb single_observation_space.shape + single_action_space.shape zusammenaddieren
+                input_dim=np.prod(obs_shape[0] + action_shape[0])            # TO DO: Obs und Action zusammen übergeben --> deshalb single_observation_space.shape + single_action_space.shape zusammenaddieren
             ).to(self.device)
             self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
             # Store preference data (pairs of trajectories)
@@ -64,7 +66,7 @@ class PPO:
                 []
             )  # should this be reset after every reward model training?     # Nein, oder? Wir wollen aus alten Erfahrungen ja weiterhin lernen.
             self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
-            self.segment_size = 60
+            self.segment_size = self.args.segment_size
             self.labeled_data = []
 
     def collect_rollout_data(self):
@@ -94,29 +96,23 @@ class PPO:
 
                 # If reward model is provided                           # an erste Stelle verschoben, um predicted rewards dann mitspeichern zu können
                 if self.reward_model:
+                    obs_action = np.concatenate(self.next_obs[env_idx].cpu().numpy(), action[env_idx].cpu().numpy())
                     with torch.no_grad():
                         predicet_reward = self.reward_model(            # Zu forward ändern?
-                            torch.Tensor(next_obs).to(self.device)      # TO DO: Action/Obs-Paar als Eingabe
+                            torch.Tensor(obs_action).to(self.device)      # TO DO: Action/Obs-Paar als Eingabe
                         )
                     reward = predicet_reward.cpu().numpy().squeeze()
                     self.trajectory_buffers[env_idx].append(
                     {
-                        "obs": self.next_obs[env_idx].cpu().numpy(),
-                        "action": action[env_idx].cpu().numpy(),
+                        "obs_action": obs_action,                       #Obs_action als Pair speichern
                         "reward": self.env_rewards[env_idx],
-                        "predicted_reward": predicet_reward[env_idx],            # Wir speichern entweder den tatsächlichen Reward oder den predicted Reward mit
+                        "predicted_reward": predicet_reward[env_idx],   # Wir speichern entweder den tatsächlichen Reward oder den predicted Reward mit
                                                                         # Frage: Kann man das auch schöner lösen als mit der if-Bedingung und der Wiederholung des Blocks?
                     }
                 )
                 else:
                     reward = self.env_rewards
-                    self.trajectory_buffers[env_idx].append(            # Die Trajectory-Database brauchen wir doch eigentlich nur, wenn wir mit Reward_model trainieren oder? Dann brauchen wir das nicht im else
-                        {
-                            "obs": self.next_obs[env_idx].cpu().numpy(),
-                            "action": action[env_idx].cpu().numpy(),
-                            "reward": self.env_rewards[env_idx],        
-                        }
-                    )
+
 
                 # If the environment resets, save the trajectory and start a new one 
                 if terminations[env_idx] or truncations[env_idx]:
@@ -300,9 +296,15 @@ class PPO:
         loss = 0
         for labeledPair in labeled_data:
 
-            inputOne, inputTwo, label, pref_prob1, pref_prob2 = labeledPair
+            segment_one, segment_two, label = labeledPair
             labelOne = 1 - label
             labelTwo = label
+
+            _ , _ , segment_cpred_rewards_One = segment_one
+            _ , _ , segment_cpred_rewards_Two = segment_two
+
+            pref_prob1 = np.exp(segment_cpred_rewards_One) / (np.exp(segment_cpred_rewards_One) + np.exp(segment_cpred_rewards_Two))    # Preference-Predictor für Paar --> mit label und Paar speichern
+            pref_prob2 = np.exp(segment_cpred_rewards_Two) / (np.exp(segment_cpred_rewards_Two) + np.exp(segment_cpred_rewards_One))
 
             loss -= labelOne * np.log(pref_prob1) + labelTwo * np.log(pref_prob2)
 
@@ -332,10 +334,7 @@ class PPO:
         else:
             label = 0.5
 
-        pref_prob1 = np.exp(segment_cpred_rewards_One) / (np.exp(segment_cpred_rewards_One) + np.exp(segment_cpred_rewards_Two))    # Preference-Predictor für Paar --> mit label und Paar speichern
-        pref_prob2 = np.exp(segment_cpred_rewards_Two) / (np.exp(segment_cpred_rewards_Two) + np.exp(segment_cpred_rewards_One))
-
-        return (inputOne, inputTwo, label, pref_prob1, pref_prob2)
+        return (segment_one, segment_two, label)
 
 
     def select_pair_of_segments(self):
@@ -354,22 +353,18 @@ class PPO:
             segment_cpred_rewards = sum([snapshot["predicted_reward"] for snapshot in segment])         # (segment_cpred_rewards = Kumulativer predicteter Reward) berechnen
             # for snapshot in segment:
             #     print(snapshot["action"])
-            segment_obs_action_matrix = [
-                np.concatenate([snapshot["obs"], snapshot["action"]])
-                for snapshot in segment 
-            ]
+            segment_obs_action_matrix = [snapshot["obs_action"] for snapshot in segment]                # hier muss nicht mehr konkateniert werden, da obs_action schon konkateniert
             segments.append((segment_obs_action_matrix, segment_rewards, segment_cpred_rewards))        # segment_cpred_rewards im Tripel mit zurückgeben
 
         return segments
     
 
     def get_labeled_data(self):
-        for idx in range(self.args.comparisons_per_epoch):                       # Als Argument einführen: Wie viel Feedback pro Trainingsepoche? --> comparisons_per_epoch
+        for idx in range(self.args.comparisons_per_epoch):                      # Als Argument einführen: Wie viel Feedback pro Trainingsepoche? --> comparisons_per_epoch
             segment_one, segment_two = self.select_pair_of_segments()
-            labeledPair = self.preference_elicitation(      # an Form-Änderung der gelabelten Paare angepasst
+            labeledPair = self.preference_elicitation(                          # an Form-Änderung der gelabelten Paare angepasst
                 segment_one, segment_two
             )
-            seg1, seg2, label, pref_prob1, pref_prob2 = labeledPair      # auch noch pref_prob extrahieren
             self.labeled_data.append(labeledPair)
             # should this be reset after every training?
 

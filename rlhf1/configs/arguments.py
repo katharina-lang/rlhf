@@ -31,7 +31,9 @@ class Args:
     num_envs: int = 1
     """the number of parallel game environments"""
     comparisons_per_epoch: int = 10
-    """Anzahl an eigeholten Präferenzpaaren pro Epoche"""
+    """Number of preference pairs per epoch"""
+    segment_size: int = 60
+    """size of a segment"""
     ### very important, num envs * num_steps = Rollouts Data trains policy = Batch Size
     num_steps: int = 2048
     """the number of steps to run in each environment per policy rollout"""
