@@ -18,7 +18,7 @@ test = False
 
 
 class PPO:
-    def __init__(self, run_name, args, reward_model=None):
+    def __init__(self, run_name, args):
         self.args = args
         # Rollouts Data
         args.batch_size = int(self.args.num_envs * self.args.num_steps)
@@ -57,28 +57,22 @@ class PPO:
         self.next_done = torch.zeros(args.num_envs).to(self.device)
 
         # reward model setup
-        if reward_model:
-            self.segment_size = 60
-            obs_dim = np.prod(self.envs.single_observation_space.shape)
-            action_dim = np.prod(self.envs.single_action_space.shape)
-            input_dim = obs_dim + action_dim
+        self.segment_size = 60
+        obs_dim = np.prod(self.envs.single_observation_space.shape)
+        action_dim = np.prod(self.envs.single_action_space.shape)
+        input_dim = obs_dim + action_dim
 
-            self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
-            # self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=1e-3)
-            self.reward_optimizer = optim.Adam(
-                self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
-            )
+        self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
+        self.reward_optimizer = optim.Adam(
+            self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
+        )
 
-            self.trajectory_buffers = [[] for _ in range(self.args.num_envs)]
-            self.labeled_data = []
-
-            self.obs_action_pair_buffer = None
-            self.true_reward_buffer = None
-            self.predicted_rewards_buffer = None
+        self.labeled_data = []
+        self.obs_action_pair_buffer = None
+        self.true_reward_buffer = None
+        self.predicted_rewards_buffer = None
 
     def collect_rollout_data(self):
-        # Collect rollout data at each step
-        # One trajectorie per env
 
         for step in range(0, self.args.num_steps):
             self.global_step += self.args.num_envs
@@ -100,65 +94,17 @@ class PPO:
             )
 
             state_action_pairs = np.hstack([self.next_obs, action.cpu().numpy()])
-            # state_action_pairs = torch.cat([self.next_obs, action], dim=1).to(
-            #     self.device
-            # )
-
             with torch.no_grad():
                 self.predicted_rewards = self.reward_model(
                     torch.tensor(state_action_pairs)
                 )
 
             if test:
-                if step == 0:
-                    state_action_pairs = np.array(
-                        [[1, 2, 3, 4, 5], [11, 12, 13, 14, 15]]
-                    )
-                    self.true_rewards = np.array([0.01, 0.03])
-                    self.predicted_rewards = torch.tensor(np.array([[0.05], [0.07]]))
+                state_action_pairs = self.test_input(step)
 
-                if step == 1:
-                    state_action_pairs = np.array(
-                        [[6, 7, 8, 9, 10], [16, 17, 18, 19, 20]]
-                    )
-                    self.true_rewards = np.array([0.02, 0.04])
-                    self.predicted_rewards = torch.tensor(np.array([[0.06], [0.08]]))
-                if step == 2:
-                    state_action_pairs = np.array(
-                        [[100, 101, 102, 103, 104], [105, 106, 107, 108, 109]]
-                    )
-                    self.true_rewards = np.array([7.3, 1.1])
-                    self.predicted_rewards = torch.tensor(np.array([[6.25], [2.75]]))
+            self.save_data(state_action_pairs)
 
-            if self.obs_action_pair_buffer is None:
-                self.obs_action_pair_buffer = state_action_pairs
-            else:
-                self.obs_action_pair_buffer = np.hstack(
-                    [self.obs_action_pair_buffer, state_action_pairs]
-                )
-
-            self.true_rewards = self.true_rewards.reshape(self.args.num_envs, 1)
-
-            if self.true_reward_buffer is None:
-                self.true_reward_buffer = self.true_rewards
-            else:
-                self.true_reward_buffer = np.hstack(
-                    [self.true_reward_buffer, self.true_rewards]
-                )
-
-            if self.predicted_rewards_buffer is None:
-                # self.predicted_rewards_buffer = self.predicted_rewards.numpy()
-                self.predicted_rewards_buffer = self.predicted_rewards
-
-            else:
-                self.predicted_rewards_buffer = torch.cat(
-                    [self.predicted_rewards_buffer, self.predicted_rewards], dim=1
-                )
-                # self.predicted_rewards_buffer = np.hstack(
-                #     [self.predicted_rewards_buffer, self.predicted_rewards.numpy()]
-                # )
-
-            # Data Storage
+            # Data Storage (cleanrl)
             self.next_done = np.logical_or(terminations, truncations)
             self.rewards[step] = (
                 torch.tensor(self.predicted_rewards).to(self.device).view(-1)
@@ -185,40 +131,74 @@ class PPO:
                         )
 
             if test:
-                if step == 2:
-                    input_dim = 5
-                    self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
-                        self.args.num_envs, -1, input_dim
-                    )
-                    self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
-                        -1, input_dim
-                    )
-                    self.true_reward_buffer = self.true_reward_buffer.reshape(-1)
-                    self.predicted_rewards_buffer = (
-                        self.predicted_rewards_buffer.reshape(-1)
-                    )
-                    print(self.obs_action_pair_buffer)
-                    print(self.true_reward_buffer)
-                    print(self.predicted_rewards_buffer)
-                    return
+                self.reshape_test_input(step)
+                return
 
+            self.reshape_data()
+
+    def save_data(self, state_action_pairs):
+        if self.obs_action_pair_buffer is None:
+            self.obs_action_pair_buffer = state_action_pairs
+        else:
+            self.obs_action_pair_buffer = np.hstack(
+                [self.obs_action_pair_buffer, state_action_pairs]
+            )
+
+        self.true_rewards = self.true_rewards.reshape(self.args.num_envs, 1)
+
+        if self.true_reward_buffer is None:
+            self.true_reward_buffer = self.true_rewards
+        else:
+            self.true_reward_buffer = np.hstack(
+                [self.true_reward_buffer, self.true_rewards]
+            )
+
+        if self.predicted_rewards_buffer is None:
+            self.predicted_rewards_buffer = self.predicted_rewards
+
+        else:
+            self.predicted_rewards_buffer = torch.cat(
+                [self.predicted_rewards_buffer, self.predicted_rewards], dim=1
+            )
+
+    def reshape_data(self):
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
             self.args.num_envs, -1, input_dim
         )
-
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
         self.true_reward_buffer = self.true_reward_buffer.reshape(-1)
         self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
 
-        # # print(self.obs_action_pair_buffer)
-        # print(self.obs_action_pair_buffer.shape)
-        # print(self.true_reward_buffer.shape)
-        # # print(self.true_reward_buffer)
-        # print(self.predicted_rewards_buffer.shape)
-        # raise Exception
+    def test_input(self, step):
+        if step == 0:
+            state_action_pairs = np.array([[1, 2, 3, 4, 5], [11, 12, 13, 14, 15]])
+            self.true_rewards = np.array([0.01, 0.03])
+            self.predicted_rewards = torch.tensor(np.array([[0.05], [0.07]]))
+
+        if step == 1:
+            state_action_pairs = np.array([[6, 7, 8, 9, 10], [16, 17, 18, 19, 20]])
+            self.true_rewards = np.array([0.02, 0.04])
+            self.predicted_rewards = torch.tensor(np.array([[0.06], [0.08]]))
+        if step == 2:
+            state_action_pairs = np.array(
+                [[100, 101, 102, 103, 104], [105, 106, 107, 108, 109]]
+            )
+            self.true_rewards = np.array([7.3, 1.1])
+            self.predicted_rewards = torch.tensor(np.array([[6.25], [2.75]]))
+
+        return state_action_pairs
+
+    def reshape_test_input(self, step):
+        input_dim = 5
+        self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
+            self.args.num_envs, -1, input_dim
+        )
+        self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
+        self.true_reward_buffer = self.true_reward_buffer.reshape(-1)
+        self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
 
     def advantage_calculation(
         self,
@@ -367,7 +347,7 @@ class PPO:
         )
 
     def train_reward_model(self, epochs=4):
-        """Train the reward model using stored predicted rewards."""
+        """Train the reward model not using stored predicted rewards. :("""
         self.reward_model.train()
         optimizer = self.reward_optimizer
 
@@ -414,10 +394,6 @@ class PPO:
                 f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(self.labeled_data):.4f}"
             )
 
-        # Clear buffers after training
-        self.obs_action_pair_buffer = None
-        self.true_reward_buffer = None
-        self.predicted_rewards_buffer = None
         self.labeled_data = []
 
     def preference_elicitation(self, segment_one, segment_two):
@@ -446,7 +422,6 @@ class PPO:
 
         if test:
             self.segment_size = 2
-        # segment amount
         segment_amount = data_points // self.segment_size
 
         segments = []
@@ -479,9 +454,6 @@ class PPO:
         """
         segments = self.select_segments()
 
-        # print("hi")
-        # print(segments)
-
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()
@@ -489,12 +461,6 @@ class PPO:
                 segment_one, segment_two
             )
             self.labeled_data.append(segments_label_reward)
-        # print("labeld:data")
-        # print(self.labeled_data)
-        # print()
-        # print()
-        # print("stop")
-        # raise Exception
 
 
 class PPOSetup:

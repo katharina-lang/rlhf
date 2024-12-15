@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    ppo = PPO(run_name, args, reward_model=True)
+    ppo = PPO(run_name, args)
 
     # starts rollout loop
     for iteration in range(1, args.num_iterations + 1):
