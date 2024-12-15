@@ -4,6 +4,4 @@ runs/
 models/
 videos/
 .flake8
-scratch/
-.DS_Store/
-virtual_env/
+__pycache__/

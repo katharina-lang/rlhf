@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    ppo = PPO(run_name, args, reward_model=True)
+    ppo = PPO(run_name, args)
 
     # starts rollout loop
     for iteration in range(1, args.num_iterations + 1):
@@ -23,13 +23,9 @@ if __name__ == "__main__":
 
         ppo.collect_rollout_data()
 
-        # trajectories
-        # habe self.preference_database
-        # jetzt nehme ich zufällige segmente raus, label sie
-        # speichere sie in labeled data, die labels müssen mit den trajektorien gespeichert werden
-        # damit trainiere ich dann
-
+        ppo.get_labeled_data()
         ppo.train_reward_model()
+
         ppo.advantage_calculation()
         ppo.optimize_agent_and_critic()
 
