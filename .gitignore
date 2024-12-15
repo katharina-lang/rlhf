@@ -4,4 +4,4 @@ runs/
 models/
 videos/
 .flake8
-**/__pycache__/
+__pycache__/
