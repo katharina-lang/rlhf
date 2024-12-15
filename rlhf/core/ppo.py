@@ -69,7 +69,7 @@ class PPO:
 
         self.labeled_data = []
         self.obs_action_pair_buffer = None
-        self.true_reward_buffer = None
+        self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
 
     def collect_rollout_data(self):
@@ -89,13 +89,13 @@ class PPO:
             self.logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, self.true_rewards, terminations, truncations, infos = (
+            next_obs, self.env_reward, terminations, truncations, infos = (
                 self.envs.step(action.cpu().numpy())
             )
 
             state_action_pairs = np.hstack([self.next_obs, action.cpu().numpy()])
             with torch.no_grad():
-                self.predicted_rewards = self.reward_model(
+                self.predicted_reward = self.reward_model(
                     torch.tensor(state_action_pairs)
                 )
 
@@ -107,7 +107,7 @@ class PPO:
             # Data Storage (cleanrl)
             self.next_done = np.logical_or(terminations, truncations)
             self.rewards[step] = (
-                torch.tensor(self.predicted_rewards).to(self.device).view(-1)
+                torch.tensor(self.predicted_reward).to(self.device).view(-1)
             )
             self.next_obs, self.next_done = torch.Tensor(next_obs).to(
                 self.device
@@ -130,11 +130,11 @@ class PPO:
                             self.global_step,
                         )
 
-            if test:
-                self.reshape_test_input(step)
+            if test and step == 2:
+                self.reshape_test_input()
                 return
 
-            self.reshape_data()
+        self.reshape_data()
 
     def save_data(self, state_action_pairs):
         if self.obs_action_pair_buffer is None:
@@ -144,21 +144,21 @@ class PPO:
                 [self.obs_action_pair_buffer, state_action_pairs]
             )
 
-        self.true_rewards = self.true_rewards.reshape(self.args.num_envs, 1)
+        self.env_reward = self.env_reward.reshape(self.args.num_envs, 1)
 
-        if self.true_reward_buffer is None:
-            self.true_reward_buffer = self.true_rewards
+        if self.env_reward_buffer is None:
+            self.env_reward_buffer = self.env_reward
         else:
-            self.true_reward_buffer = np.hstack(
-                [self.true_reward_buffer, self.true_rewards]
+            self.env_reward_buffer = np.hstack(
+                [self.env_reward_buffer, self.env_reward]
             )
 
         if self.predicted_rewards_buffer is None:
-            self.predicted_rewards_buffer = self.predicted_rewards
+            self.predicted_rewards_buffer = self.predicted_reward
 
         else:
             self.predicted_rewards_buffer = torch.cat(
-                [self.predicted_rewards_buffer, self.predicted_rewards], dim=1
+                [self.predicted_rewards_buffer, self.predicted_reward], dim=1
             )
 
     def reshape_data(self):
@@ -169,35 +169,35 @@ class PPO:
             self.args.num_envs, -1, input_dim
         )
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
-        self.true_reward_buffer = self.true_reward_buffer.reshape(-1)
+        self.env_reward_buffer = self.env_reward_buffer.reshape(-1)
         self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
 
     def test_input(self, step):
         if step == 0:
             state_action_pairs = np.array([[1, 2, 3, 4, 5], [11, 12, 13, 14, 15]])
-            self.true_rewards = np.array([0.01, 0.03])
-            self.predicted_rewards = torch.tensor(np.array([[0.05], [0.07]]))
+            self.env_reward = np.array([0.01, 0.03])
+            self.predicted_reward = torch.tensor(np.array([[0.05], [0.07]]))
 
         if step == 1:
             state_action_pairs = np.array([[6, 7, 8, 9, 10], [16, 17, 18, 19, 20]])
-            self.true_rewards = np.array([0.02, 0.04])
-            self.predicted_rewards = torch.tensor(np.array([[0.06], [0.08]]))
+            self.env_reward = np.array([0.02, 0.04])
+            self.predicted_reward = torch.tensor(np.array([[0.06], [0.08]]))
         if step == 2:
             state_action_pairs = np.array(
                 [[100, 101, 102, 103, 104], [105, 106, 107, 108, 109]]
             )
-            self.true_rewards = np.array([7.3, 1.1])
-            self.predicted_rewards = torch.tensor(np.array([[6.25], [2.75]]))
+            self.env_reward = np.array([7.3, 1.1])
+            self.predicted_reward = torch.tensor(np.array([[6.25], [2.75]]))
 
         return state_action_pairs
 
-    def reshape_test_input(self, step):
+    def reshape_test_input(self):
         input_dim = 5
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
             self.args.num_envs, -1, input_dim
         )
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
-        self.true_reward_buffer = self.true_reward_buffer.reshape(-1)
+        self.env_reward_buffer = self.env_reward_buffer.reshape(-1)
         self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
 
     def advantage_calculation(
@@ -418,7 +418,7 @@ class PPO:
 
     def select_segments(self):
 
-        data_points = self.true_reward_buffer.shape[0]
+        data_points = self.env_reward_buffer.shape[0]
 
         if test:
             self.segment_size = 2
@@ -429,13 +429,13 @@ class PPO:
             start_idx = np.random.randint(0, data_points - self.segment_size)
             end_idx = start_idx + self.segment_size
             segment_obs_action = self.obs_action_pair_buffer[start_idx:end_idx]
-            true_reward = sum(self.true_reward_buffer[start_idx:end_idx])
+            true_reward = sum(self.env_reward_buffer[start_idx:end_idx])
             predicted_reward = self.predicted_rewards_buffer[start_idx:end_idx]
             segment = (segment_obs_action, true_reward, predicted_reward)
             segments.append(segment)
 
         self.obs_action_pair_buffer = None
-        self.true_reward_buffer = None
+        self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
 
         return segments
