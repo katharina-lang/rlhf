@@ -5,3 +5,4 @@ models/
 videos/
 .flake8
 __pycache__/
+.DS_Store/
