@@ -16,11 +16,8 @@ from rlhf.core.labeling import Labeling
 from rlhf.core.ppo_setup import PPOSetup
 
 
-test = False
-
-
 class PPO:
-    def __init__(self, run_name, args):
+    def __init__(self, run_name, args, test_data=None):
         self.args = args
         # Rollouts Data
         args.batch_size = int(self.args.num_envs * self.args.num_steps)
@@ -76,6 +73,10 @@ class PPO:
 
         # Für Modularisierung mit Labeling hinzugefügt:
         self.labeling = Labeling(segment_size=self.segment_size, test=test)
+        # Falls Testdaten vorhanden
+        if test_data:
+            self.obs_action_pair_buffer, self.true_reward_buffer, self.predicted_rewards_buffer = test_data
+
 
     def collect_rollout_data(self):
 
@@ -104,9 +105,6 @@ class PPO:
                     torch.tensor(state_action_pairs)
                 )
 
-            if test:
-                state_action_pairs = self.test_input(step)
-
             self.save_data(state_action_pairs)
 
             # Data Storage (cleanrl)
@@ -134,10 +132,6 @@ class PPO:
                             info["episode"]["l"],
                             self.global_step,
                         )
-
-            if test and step == 2:
-                self.reshape_test_input()
-                return
 
         self.reshape_data()
 
@@ -170,34 +164,6 @@ class PPO:
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
-        self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
-            self.args.num_envs, -1, input_dim
-        )
-        self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
-        self.env_reward_buffer = self.env_reward_buffer.reshape(-1)
-        self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
-
-    def test_input(self, step):
-        if step == 0:
-            state_action_pairs = np.array([[1, 2, 3, 4, 5], [11, 12, 13, 14, 15]])
-            self.env_reward = np.array([0.01, 0.03])
-            self.predicted_reward = torch.tensor(np.array([[0.05], [0.07]]))
-
-        if step == 1:
-            state_action_pairs = np.array([[6, 7, 8, 9, 10], [16, 17, 18, 19, 20]])
-            self.env_reward = np.array([0.02, 0.04])
-            self.predicted_reward = torch.tensor(np.array([[0.06], [0.08]]))
-        if step == 2:
-            state_action_pairs = np.array(
-                [[100, 101, 102, 103, 104], [105, 106, 107, 108, 109]]
-            )
-            self.env_reward = np.array([7.3, 1.1])
-            self.predicted_reward = torch.tensor(np.array([[6.25], [2.75]]))
-
-        return state_action_pairs
-
-    def reshape_test_input(self):
-        input_dim = 5
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
             self.args.num_envs, -1, input_dim
         )

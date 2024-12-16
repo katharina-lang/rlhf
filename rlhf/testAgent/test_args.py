@@ -10,7 +10,7 @@ class TestArgs:
     num_minibatches = 4
     torch_deterministic = True
     clip_coef = 0.2
-    env_id = "HalfCheetah-v5"
+    env_id = "HalfCheetah-v4"
     exp_name = "TestRun"
     capture_video = True
     cuda = False
