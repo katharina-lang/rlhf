@@ -12,6 +12,8 @@ from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
 from rlhf.utils.env import make_env
 from rlhf.core.reward_model import RewardModel
+from rlhf.core.labeling import Labeling
+from rlhf.core.ppo_setup import PPOSetup
 
 
 test = False
@@ -71,6 +73,9 @@ class PPO:
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
+
+        # Für Modularisierung mit Labeling hinzugefügt:
+        self.labeling = Labeling(segment_size=self.segment_size, test=test)
 
     def collect_rollout_data(self):
 
@@ -228,88 +233,6 @@ class PPO:
                 )
             self.returns = self.advantages + self.values
 
-    def optimize_agent_and_critic(self):
-
-        self.b_obs = self.obs.reshape((-1,) + self.envs.single_observation_space.shape)
-        self.b_logprobs = self.logprobs.reshape(-1)
-        self.b_actions = self.actions.reshape(
-            (-1,) + self.envs.single_action_space.shape
-        )
-        self.b_advantages = self.advantages.reshape(-1)
-        self.b_returns = self.returns.reshape(-1)
-        self.b_values = self.values.reshape(-1)
-
-        self.b_inds = np.arange(self.args.batch_size)
-        self.clipfracs = []
-        for epoch in range(self.args.update_epochs):
-            np.random.shuffle(self.b_inds)
-            for start in range(0, self.args.batch_size, self.args.minibatch_size):
-                end = start + self.args.minibatch_size
-                mb_inds = self.b_inds[start:end]
-
-                _, newlogprob, entropy, newvalue = self.agent.get_action_and_value(
-                    self.b_obs[mb_inds], self.b_actions[mb_inds]
-                )
-                logratio = newlogprob - self.b_logprobs[mb_inds]
-                ratio = logratio.exp()
-
-                with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                    self.old_approx_kl = (-logratio).mean()
-                    self.approx_kl = ((ratio - 1) - logratio).mean()
-                    self.clipfracs += [
-                        ((ratio - 1.0).abs() > self.args.clip_coef)
-                        .float()
-                        .mean()
-                        .item()
-                    ]
-
-                self.mb_advantages = self.b_advantages[mb_inds]
-                if self.args.norm_adv:
-                    self.mb_advantages = (
-                        self.mb_advantages - self.mb_advantages.mean()
-                    ) / (self.mb_advantages.std() + 1e-8)
-
-                # Policy loss
-                pg_loss1 = -self.mb_advantages * ratio
-                pg_loss2 = -self.mb_advantages * torch.clamp(
-                    ratio, 1 - self.args.clip_coef, 1 + self.args.clip_coef
-                )
-                self.pg_loss = torch.max(pg_loss1, pg_loss2).mean()
-
-                # Value loss
-                newvalue = newvalue.view(-1)
-                if self.args.clip_vloss:
-                    v_loss_unclipped = (newvalue - self.b_returns[mb_inds]) ** 2
-                    v_clipped = self.b_values[mb_inds] + torch.clamp(
-                        newvalue - self.b_values[mb_inds],
-                        -self.args.clip_coef,
-                        self.args.clip_coef,
-                    )
-                    v_loss_clipped = (v_clipped - self.b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    self.v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    self.v_loss = (
-                        0.5 * ((newvalue - self.b_returns[mb_inds]) ** 2).mean()
-                    )
-
-                self.entropy_loss = entropy.mean()
-                loss = (
-                    self.pg_loss
-                    - self.args.ent_coef * self.entropy_loss
-                    + self.v_loss * self.args.vf_coef
-                )
-
-                self.optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(
-                    self.agent.parameters(), self.args.max_grad_norm
-                )
-                self.optimizer.step()
-
-            if self.args.target_kl is not None and self.approx_kl > self.args.target_kl:
-                break
 
     def record_rewards_for_plotting_purposes(self, explained_var):
         # TRY NOT TO MODIFY: record rewards for plotting purposes
@@ -345,165 +268,3 @@ class PPO:
             int(self.global_step / (time.time() - self.start_time)),
             self.global_step,
         )
-
-    def train_reward_model(self, epochs=4):
-        """Train the reward model not using stored predicted rewards. :("""
-        self.reward_model.train()
-        optimizer = self.reward_optimizer
-
-        for epoch in range(epochs):
-            epoch_loss = 0
-
-            for labeled_pair in self.labeled_data:
-                (
-                    segment_obs_actionOne,
-                    segment_obs_actionTwo,
-                    (labelOne, labelTwo),
-                    (predicted_rewardOne, predicted_rewardTwo),
-                ) = labeled_pair
-
-                segment_obs_actionOne = torch.tensor(segment_obs_actionOne)
-                segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo)
-
-                predicted_rewardOne = self.reward_model(segment_obs_actionOne).sum()
-                predicted_rewardTwo = self.reward_model(segment_obs_actionTwo).sum()
-                labels = torch.tensor(
-                    [labelOne, labelTwo],
-                    dtype=torch.float32,
-                    device=self.device,
-                )
-
-                prob_one = torch.exp(predicted_rewardOne) / (
-                    torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
-                )
-
-                prob_two = 1 - prob_one
-
-                loss = -torch.mean(
-                    labels[0] * torch.log(prob_one + 1e-8)
-                    + labels[1] * torch.log(prob_two + 1e-8)
-                )
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                epoch_loss += loss.item()
-
-            print(
-                f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(self.labeled_data):.4f}"
-            )
-
-        self.labeled_data = []
-
-    def preference_elicitation(self, segment_one, segment_two):
-        segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
-        segment_obs_actionTwo, true_rewardTwo, predicted_rewardTwo = segment_two
-
-        if true_rewardOne > true_rewardTwo:
-            labelOne = 1
-            labelTwo = 0
-        elif true_rewardTwo > true_rewardOne:
-            labelOne = 0
-            labelTwo = 1
-        else:
-            labelOne = labelTwo = 0.5
-
-        return (
-            segment_obs_actionOne,
-            segment_obs_actionTwo,
-            (labelOne, labelTwo),
-            (predicted_rewardOne, predicted_rewardTwo),
-        )
-
-    def select_segments(self):
-
-        data_points = self.env_reward_buffer.shape[0]
-
-        if test:
-            self.segment_size = 2
-        segment_amount = data_points // self.segment_size
-
-        segments = []
-        for _ in range(segment_amount):
-            start_idx = np.random.randint(0, data_points - self.segment_size)
-            end_idx = start_idx + self.segment_size
-            segment_obs_action = self.obs_action_pair_buffer[start_idx:end_idx]
-            true_reward = sum(self.env_reward_buffer[start_idx:end_idx])
-            predicted_reward = self.predicted_rewards_buffer[start_idx:end_idx]
-            segment = (segment_obs_action, true_reward, predicted_reward)
-            segments.append(segment)
-
-        self.obs_action_pair_buffer = None
-        self.env_reward_buffer = None
-        self.predicted_rewards_buffer = None
-
-        return segments
-
-    def get_labeled_data(self):
-        """
-        one element of labeld_data looks like the following:
-        (
-            segment_obs_actionOne,
-            segment_obs_actionTwo,
-            (labelOne, labelTwo),
-            (predicted_rewardOne, predicted_rewardTwo),
-        )
-        where the obs_action is the input for the reward model
-        and predicted_rewardOne is the total reward for segment One
-        """
-        segments = self.select_segments()
-
-        while len(segments) > 1:
-            segment_one = segments.pop()
-            segment_two = segments.pop()
-            segments_label_reward = self.preference_elicitation(
-                segment_one, segment_two
-            )
-            self.labeled_data.append(segments_label_reward)
-
-
-class PPOSetup:
-    @staticmethod
-    def set_up_writer(run_name, args):
-        writer = SummaryWriter(f"runs/{run_name}")
-        writer.add_text(
-            "hyperparameters",
-            "|param|value|\n|-|-|\n%s"
-            % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
-        )
-        return writer
-
-    @staticmethod
-    def set_up_device(args):
-        device = torch.device(
-            "cuda" if torch.cuda.is_available() and args.cuda else "cpu"
-        )
-        device = "cpu"
-        return device
-
-    @staticmethod
-    def set_up_envs(args, run_name):
-        envs = gym.vector.SyncVectorEnv(
-            [
-                make_env(args.env_id, i, args.capture_video, run_name, args.gamma)
-                for i in range(args.num_envs)
-            ]
-        )
-        assert isinstance(
-            envs.single_action_space, gym.spaces.Box
-        ), "only continuous action space is supported"
-        return envs
-
-    def set_up_storage(args, envs, device):
-        obs = torch.zeros(
-            (args.num_steps, args.num_envs) + envs.single_observation_space.shape
-        ).to(device)
-        actions = torch.zeros(
-            (args.num_steps, args.num_envs) + envs.single_action_space.shape
-        ).to(device)
-        logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
-        rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
-        dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
-        values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-        return obs, actions, logprobs, rewards, dones, values
