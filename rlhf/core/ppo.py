@@ -113,22 +113,41 @@ class PPO:
                 self.device
             ), torch.Tensor(self.next_done).to(self.device)
 
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        print(
-                            f"global_step={self.global_step}, episodic_return={info['episode']['r']}"
-                        )
-                        self.writer.add_scalar(
-                            "charts/episodic_return",
-                            info["episode"]["r"],
-                            self.global_step,
-                        )
-                        self.writer.add_scalar(
-                            "charts/episodic_length",
-                            info["episode"]["l"],
-                            self.global_step,
-                        )
+            if "episode" in infos:
+                for idx, return_val in enumerate(infos["episode"]["r"]):
+                    if return_val == 0:
+                        continue
+                    # print(f"global_step={global_step}, episodic_return={return_val}")
+                    self.writer.add_scalar(
+                        f"charts/episodic_return/env_{idx}",
+                        return_val,
+                        self.global_step,
+                    )
+                for idx, return_val in enumerate(infos["episode"]["l"]):
+                    if return_val == 0:
+                        continue
+                    self.writer.add_scalar(
+                        f"charts/episodic_return/env_{idx}",
+                        return_val,
+                        self.global_step,
+                    )
+
+            # if "final_info" in infos:
+            #     for info in infos["final_info"]:
+            #         if info and "episode" in info:
+            #             print(
+            #                 f"global_step={self.global_step}, episodic_return={info['episode']['r']}"
+            #             )
+            #             self.writer.add_scalar(
+            #                 "charts/episodic_return",
+            #                 info["episode"]["r"],
+            #                 self.global_step,
+            #             )
+            #             self.writer.add_scalar(
+            #                 "charts/episodic_length",
+            #                 info["episode"]["l"],
+            #                 self.global_step,
+            #             )
 
             if test and step == 2:
                 self.reshape_test_input()
@@ -345,6 +364,7 @@ class PPO:
             int(self.global_step / (time.time() - self.start_time)),
             self.global_step,
         )
+        self.writer.add_scalar("reward", self.v_loss.item(), self.global_step)
 
     def train_reward_model(self, epochs=4):
         """Train the reward model not using stored predicted rewards. :("""
