@@ -70,7 +70,7 @@ class PPO:
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
-        
+
         # Falls Testdaten vorhanden
         if test_data:
             self.obs_action_pair_buffer, self.true_reward_buffer, self.predicted_rewards_buffer = test_data
