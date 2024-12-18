@@ -13,6 +13,9 @@ def test_agent():
     
     # Load Test Data
     obs_actions, true_rewards, predicted_rewards = create_test_data()
+    print(obs_actions)
+    print(true_rewards)
+    print(predicted_rewards)
     test_data = (obs_actions, true_rewards, predicted_rewards)  # Testdaten als Tuple
     
     # Erstelle PPO-Agent mit Testdaten

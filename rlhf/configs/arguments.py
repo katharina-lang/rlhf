@@ -33,6 +33,8 @@ class Args:
     ### very important, num envs * num_steps = Rollouts Data trains policy = Batch Size
     num_steps: int = 2048
     """the number of steps to run in each environment per policy rollout"""
+    segment_size: int = 60
+    """Segment size"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks"""
     gamma: float = 0.99

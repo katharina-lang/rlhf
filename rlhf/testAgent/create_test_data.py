@@ -23,4 +23,9 @@ def create_test_data():
         np.array([0.05, 0.06, 6.25, 2.5]),
         np.array([0.07, 0.08, 2.75, 1.5]),
     ]
-    return obs_actions, true_rewards, predicted_rewards
+
+    obs_actions_flat = np.vstack(obs_actions)
+    true_rewards_flat = np.hstack(true_rewards).flatten()
+    predicted_rewards_flat = np.hstack(predicted_rewards).flatten()
+
+    return obs_actions_flat, true_rewards_flat, predicted_rewards_flat

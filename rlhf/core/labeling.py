@@ -39,11 +39,11 @@ class Labeling:
         obs_action_pair_buffer = np.array(obs_action_pair_buffer)
         env_reward_buffer = np.array(env_reward_buffer)
         predicted_rewards_buffer = np.array(predicted_rewards_buffer)
+        print(env_reward_buffer)
 
         data_points = len(env_reward_buffer)  # Für Listen oder Arrays geeignet
-
-        if self.test:
-            self.segment_size = 2
+        print("Data points: " + str(len(env_reward_buffer)))
+        print("Segment amount: " + str(self.segment_size))
         segment_amount = data_points // self.segment_size
 
         segments = []

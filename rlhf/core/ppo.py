@@ -56,7 +56,7 @@ class PPO:
         self.next_done = torch.zeros(args.num_envs).to(self.device)
 
         # reward model setup
-        self.segment_size = 60
+        self.segment_size = self.args.segment_size
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
@@ -70,9 +70,7 @@ class PPO:
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
-
-        # Für Modularisierung mit Labeling hinzugefügt:
-        self.labeling = Labeling(segment_size=self.segment_size, test=True)
+        
         # Falls Testdaten vorhanden
         if test_data:
             self.obs_action_pair_buffer, self.true_reward_buffer, self.predicted_rewards_buffer = test_data
