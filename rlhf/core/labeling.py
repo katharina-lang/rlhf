@@ -35,7 +35,12 @@ class Labeling:
         """
         Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
         """
-        data_points = env_reward_buffer.shape[0]
+        # Sicherstellen, dass die Eingabedaten NumPy-Arrays sind
+        obs_action_pair_buffer = np.array(obs_action_pair_buffer)
+        env_reward_buffer = np.array(env_reward_buffer)
+        predicted_rewards_buffer = np.array(predicted_rewards_buffer)
+
+        data_points = len(env_reward_buffer)  # Für Listen oder Arrays geeignet
 
         if self.test:
             self.segment_size = 2

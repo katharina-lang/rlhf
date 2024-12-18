@@ -72,7 +72,7 @@ class PPO:
         self.predicted_rewards_buffer = None
 
         # Für Modularisierung mit Labeling hinzugefügt:
-        self.labeling = Labeling(segment_size=self.segment_size, test=test)
+        self.labeling = Labeling(segment_size=self.segment_size, test=True)
         # Falls Testdaten vorhanden
         if test_data:
             self.obs_action_pair_buffer, self.true_reward_buffer, self.predicted_rewards_buffer = test_data
