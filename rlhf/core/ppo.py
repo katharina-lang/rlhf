@@ -96,6 +96,7 @@ class PPO:
             next_obs, self.env_reward, terminations, truncations, infos = (
                 self.envs.step(action.cpu().numpy())
             )
+            print("Next obs" + str(next_obs))
 
             state_action_pairs = np.hstack([self.next_obs, action.cpu().numpy()])
             with torch.no_grad():
@@ -135,7 +136,7 @@ class PPO:
 
     def save_data(self, state_action_pairs):
         if self.obs_action_pair_buffer is None:
-            self.obs_action_pair_buffer = state_action_pairs
+           self.obs_action_pair_buffer = state_action_pairs
         else:
             self.obs_action_pair_buffer = np.hstack(
                 [self.obs_action_pair_buffer, state_action_pairs]
@@ -206,22 +207,22 @@ class PPO:
             self.global_step,
         )
         self.writer.add_scalar(
-            "losses/value_loss", self.v_loss.item(), self.global_step
+            "losses/value_loss", self.agent.v_loss.item(), self.global_step
         )
         self.writer.add_scalar(
-            "losses/policy_loss", self.pg_loss.item(), self.global_step
+            "losses/policy_loss", self.agent.pg_loss.item(), self.global_step
         )
         self.writer.add_scalar(
-            "losses/entropy", self.entropy_loss.item(), self.global_step
+            "losses/entropy", self.agent.entropy_loss.item(), self.global_step
         )
         self.writer.add_scalar(
-            "losses/old_approx_kl", self.old_approx_kl.item(), self.global_step
+            "losses/old_approx_kl", self.agent.old_approx_kl.item(), self.global_step
         )
         self.writer.add_scalar(
-            "losses/approx_kl", self.approx_kl.item(), self.global_step
+            "losses/approx_kl", self.agent.approx_kl.item(), self.global_step
         )
         self.writer.add_scalar(
-            "losses/clipfrac", np.mean(self.clipfracs), self.global_step
+            "losses/clipfrac", np.mean(self.agent.clipfracs), self.global_step
         )
         self.writer.add_scalar(
             "losses/explained_variance", explained_var, self.global_step
@@ -232,3 +233,5 @@ class PPO:
             int(self.global_step / (time.time() - self.start_time)),
             self.global_step,
         )
+
+        

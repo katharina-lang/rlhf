@@ -112,6 +112,12 @@ class Agent(nn.Module):
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
+                self.v_loss = v_loss
+                self.pg_loss = pg_loss
+                self.entropy_loss = entropy_loss
+                self.approx_kl = approx_kl
+                self.old_approx_kl = old_approx_kl
+                self.clipfracs = clipfracs
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
