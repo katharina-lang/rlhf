@@ -366,56 +366,107 @@ class PPO:
         )
         self.writer.add_scalar("reward", self.v_loss.item(), self.global_step)
 
-    def train_reward_model(self):
+    # old
+    def train_reward_model(self, epochs=4):
         """Train the reward model not using stored predicted rewards. :("""
         self.reward_model.train()
         optimizer = self.reward_optimizer
 
-        optimizer.zero_grad()
-        total_loss = 0
+        for epoch in range(epochs):
+            epoch_loss = 0
 
-        for labeled_pair in self.labeled_data:
-            (
-                segment_obs_actionOne,
-                segment_obs_actionTwo,
-                (labelOne, labelTwo),
-                (predicted_rewardOne, predicted_rewardTwo),
-            ) = labeled_pair
+            for labeled_pair in self.labeled_data:
+                (
+                    segment_obs_actionOne,
+                    segment_obs_actionTwo,
+                    (labelOne, labelTwo),
+                    (predicted_rewardOne, predicted_rewardTwo),
+                ) = labeled_pair
 
-            segment_obs_actionOne = torch.tensor(
-                segment_obs_actionOne, device=self.device
+                segment_obs_actionOne = torch.tensor(segment_obs_actionOne)
+                segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo)
+
+                predicted_rewardOne = self.reward_model(segment_obs_actionOne).sum()
+                predicted_rewardTwo = self.reward_model(segment_obs_actionTwo).sum()
+                labels = torch.tensor(
+                    [labelOne, labelTwo],
+                    dtype=torch.float32,
+                    device=self.device,
+                )
+
+                prob_one = torch.exp(predicted_rewardOne) / (
+                    torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
+                )
+
+                prob_two = 1 - prob_one
+
+                loss = -torch.mean(
+                    labels[0] * torch.log(prob_one + 1e-8)
+                    + labels[1] * torch.log(prob_two + 1e-8)
+                )
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                epoch_loss += loss.item()
+
+            print(
+                f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(self.labeled_data):.4f}"
             )
-            segment_obs_actionTwo = torch.tensor(
-                segment_obs_actionTwo, device=self.device
-            )
-
-            predicted_rewardOne = self.reward_model(segment_obs_actionOne).sum()
-            predicted_rewardTwo = self.reward_model(segment_obs_actionTwo).sum()
-            labels = torch.tensor(
-                [labelOne, labelTwo],
-                dtype=torch.float32,
-                device=self.device,
-            )
-
-            prob_one = torch.exp(predicted_rewardOne) / (
-                torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
-            )
-
-            prob_two = 1 - prob_one
-
-            pair_loss = -(
-                labels[0] * torch.log(prob_one + 1e-8)
-                + labels[1] * torch.log(prob_two + 1e-8)
-            )
-            total_loss += pair_loss
-
-        total_loss.backward()
-        optimizer.step()
-
-        average_loss = total_loss.item() / len(self.labeled_data)
-        print(f"Average_Loss: {average_loss:.4f}")
 
         self.labeled_data = []
+
+    # def train_reward_model(self):
+    #     """Train the reward model not using stored predicted rewards. :("""
+    #     self.reward_model.train()
+    #     optimizer = self.reward_optimizer
+
+    #     optimizer.zero_grad()
+    #     total_loss = 0
+
+    #     for labeled_pair in self.labeled_data:
+    #         (
+    #             segment_obs_actionOne,
+    #             segment_obs_actionTwo,
+    #             (labelOne, labelTwo),
+    #             (predicted_rewardOne, predicted_rewardTwo),
+    #         ) = labeled_pair
+
+    #         segment_obs_actionOne = torch.tensor(
+    #             segment_obs_actionOne, device=self.device
+    #         )
+    #         segment_obs_actionTwo = torch.tensor(
+    #             segment_obs_actionTwo, device=self.device
+    #         )
+
+    #         predicted_rewardOne = self.reward_model(segment_obs_actionOne).sum()
+    #         predicted_rewardTwo = self.reward_model(segment_obs_actionTwo).sum()
+    #         labels = torch.tensor(
+    #             [labelOne, labelTwo],
+    #             dtype=torch.float32,
+    #             device=self.device,
+    #         )
+
+    #         prob_one = torch.exp(predicted_rewardOne) / (
+    #             torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
+    #         )
+
+    #         prob_two = 1 - prob_one
+
+    #         pair_loss = -(
+    #             labels[0] * torch.log(prob_one + 1e-8)
+    #             + labels[1] * torch.log(prob_two + 1e-8)
+    #         )
+    #         total_loss += pair_loss
+
+    #     total_loss.backward()
+    #     optimizer.step()
+
+    #     average_loss = total_loss.item() / len(self.labeled_data)
+    #     print(f"Average_Loss: {average_loss:.4f}")
+
+    #     self.labeled_data = []
 
     def preference_elicitation(self, segment_one, segment_two):
         segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
