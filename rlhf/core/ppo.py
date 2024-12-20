@@ -65,18 +65,19 @@ class PPO:
         self.reward_optimizer = optim.Adam(
             self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
         )
-
-        self.labeled_data = []
-        self.obs_action_pair_buffer = None
-        self.env_reward_buffer = None
-        self.predicted_rewards_buffer = None
-
+        
         # Falls Testdaten vorhanden
         if test_data:
             self.obs_action_pair_buffer, self.true_reward_buffer, self.predicted_rewards_buffer = test_data
 
 
     def collect_rollout_data(self):
+
+        self.obs_action_pair_buffer = None
+        self.env_reward_buffer = None
+        self.predicted_rewards_buffer = None
+        self.labeled_data = []
+
 
         for step in range(0, self.args.num_steps):
             self.global_step += self.args.num_envs
@@ -96,14 +97,17 @@ class PPO:
             next_obs, self.env_reward, terminations, truncations, infos = (
                 self.envs.step(action.cpu().numpy())
             )
-            print("Next obs" + str(next_obs))
+            
 
-            state_action_pairs = np.hstack([self.next_obs, action.cpu().numpy()])
+            state_action_pairs = np.hstack([self.next_obs.cpu().numpy(), action.cpu().numpy()])
+            
+            
             with torch.no_grad():
                 self.predicted_reward = self.reward_model(
                     torch.tensor(state_action_pairs)
                 )
 
+            # Warum sind die Pairs keine Pairs?
             self.save_data(state_action_pairs)
 
             # Data Storage (cleanrl)
