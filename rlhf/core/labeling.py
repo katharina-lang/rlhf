@@ -1,11 +1,42 @@
 import numpy as np
-import torch
+import os
+import cv2
 
 
 class Labeling:
-    def __init__(self, segment_size=60, test=False):
+    def __init__(self, segment_size=60, test=False, video_folder="segments_videos"):
         self.segment_size = segment_size
         self.test = test
+        self.video_folder = video_folder
+        os.makedirs(video_folder, exist_ok=True)
+
+
+    def create_video_from_segment(self, frames, video_name, fps=30):
+        """
+        Erstellt ein Video aus den übergebenen Frames und speichert es.
+        """
+        height, width, _ = frames[0].shape
+        video_path = os.path.join(self.video_folder, f"{video_name}.mp4")
+        out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+
+        for frame in frames:
+            out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Konvertiere von RGB nach BGR für OpenCV
+        out.release()
+
+    def save_segment_videos(self, frames_buffer):
+        """
+        Speichert ein Video pro Segment. Jedes Segment besteht aus `segment_size` Frames.
+        """
+        total_frames = len(frames_buffer)
+        num_segments = total_frames // self.segment_size
+
+        for segment_idx in range(num_segments):
+            start_idx = segment_idx * self.segment_size
+            end_idx = start_idx + self.segment_size
+            segment_frames = frames_buffer[start_idx:end_idx]
+            video_name = f"segment_{segment_idx}"
+            self.create_video_from_segment(segment_frames, video_name)
+    
 
     def preference_elicitation(self, segment_one, segment_two):
         """

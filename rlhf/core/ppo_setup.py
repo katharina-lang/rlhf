@@ -36,7 +36,7 @@ class PPOSetup:
         """
         envs = gym.vector.SyncVectorEnv(
             [
-                make_env(args.env_id, i, args.capture_video, run_name, args.gamma)
+                make_env(args.env_id, i, args.capture_video, "segments_videos", run_name, args.gamma)
                 for i in range(args.num_envs)
             ]
         )

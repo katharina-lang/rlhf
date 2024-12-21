@@ -80,6 +80,7 @@ class PPO:
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
+        self.frames_buffer = []
 
         for step in range(0, self.args.num_steps):
             self.global_step += self.args.num_envs
@@ -94,6 +95,9 @@ class PPO:
                 self.values[step] = value.flatten()
             self.actions[step] = action
             self.logprobs[step] = logprob
+
+            frames = [env.render() for env in self.envs.envs]
+            self.frames_buffer.append(frames)
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, self.env_reward, terminations, truncations, infos = (
@@ -160,6 +164,8 @@ class PPO:
                             self.global_step,
                         )
 
+        labeling = Labeling(segment_size=self.args.segment_size, video_folder="segments_videos")
+        labeling.save_segment_videos(self.frames_buffer)
         self.reshape_data()
 
         self.track_pearsonr(self.env_reward_buffer, self.predicted_rewards_buffer)
@@ -199,6 +205,7 @@ class PPO:
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
         self.env_reward_buffer = self.env_reward_buffer.reshape(-1)
         self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
+        self.frames_buffer = np.array(self.frames_buffer)
 
     def advantage_calculation(
         self,

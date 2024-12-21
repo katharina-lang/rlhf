@@ -6,3 +6,6 @@ models/
 videos/
 __pycache__/
 .DS_Store/
+segments_videos/
+venv2/
+.flake8/

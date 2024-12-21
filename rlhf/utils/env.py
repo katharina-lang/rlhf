@@ -2,11 +2,11 @@ import gymnasium as gym
 import numpy as np
 
 
-def make_env(env_id, idx, capture_video, run_name, gamma):
+def make_env(env_id, idx, capture_video, video_folder, run_name, gamma):
     def thunk():
         if capture_video and idx == 0:
             env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+            env = gym.wrappers.RecordVideo(env, video_folder=video_folder, disable_logger=True)
         else:
             env = gym.make(env_id)
         env = gym.wrappers.FlattenObservation(
@@ -23,7 +23,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
                 high=10,
                 shape=env.observation_space.shape,
                 dtype=env.observation_space.dtype,
-            ),
+            ),          
         )
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
