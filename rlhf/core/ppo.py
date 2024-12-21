@@ -14,6 +14,7 @@ from rlhf.utils.env import make_env
 from rlhf.core.reward_model import RewardModel
 from rlhf.core.labeling import Labeling
 from rlhf.core.ppo_setup import PPOSetup
+from scipy.stats import pearsonr
 
 
 class PPO:
@@ -65,19 +66,20 @@ class PPO:
         self.reward_optimizer = optim.Adam(
             self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
         )
-        
+
         # Falls Testdaten vorhanden
         if test_data:
-            self.obs_action_pair_buffer, self.true_reward_buffer, self.predicted_rewards_buffer = test_data
-
+            (
+                self.obs_action_pair_buffer,
+                self.true_reward_buffer,
+                self.predicted_rewards_buffer,
+            ) = test_data
 
     def collect_rollout_data(self):
 
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
-        self.labeled_data = []
-
 
         for step in range(0, self.args.num_steps):
             self.global_step += self.args.num_envs
@@ -97,11 +99,11 @@ class PPO:
             next_obs, self.env_reward, terminations, truncations, infos = (
                 self.envs.step(action.cpu().numpy())
             )
-            
 
-            state_action_pairs = np.hstack([self.next_obs.cpu().numpy(), action.cpu().numpy()])
-            
-            
+            state_action_pairs = np.hstack(
+                [self.next_obs.cpu().numpy(), action.cpu().numpy()]
+            )
+
             with torch.no_grad():
                 self.predicted_reward = self.reward_model(
                     torch.tensor(state_action_pairs)
@@ -138,9 +140,11 @@ class PPO:
 
         self.reshape_data()
 
+        self.track_pearsonr(self.env_reward_buffer, self.predicted_rewards_buffer)
+
     def save_data(self, state_action_pairs):
         if self.obs_action_pair_buffer is None:
-           self.obs_action_pair_buffer = state_action_pairs
+            self.obs_action_pair_buffer = state_action_pairs
         else:
             self.obs_action_pair_buffer = np.hstack(
                 [self.obs_action_pair_buffer, state_action_pairs]
@@ -202,7 +206,6 @@ class PPO:
                 )
             self.returns = self.advantages + self.values
 
-
     def record_rewards_for_plotting_purposes(self, explained_var):
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         self.writer.add_scalar(
@@ -238,4 +241,13 @@ class PPO:
             self.global_step,
         )
 
-        
+    def track_pearsonr(self, env_rewards, predicted_rewards):
+        """Calculate and track the Pearson Correlation between environment and real rewards"""
+        if torch.is_tensor(predicted_rewards):
+            predicted_rewards = predicted_rewards.cpu().numpy()
+
+        pearson_corr, _ = pearsonr(env_rewards, predicted_rewards)
+
+        self.writer.add_scalar(
+            "metrics/pearson_correlation", pearson_corr, self.global_step
+        )

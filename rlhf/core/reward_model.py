@@ -19,7 +19,7 @@ class RewardModel(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-    
+
 
 def train_reward_model(reward_model, reward_optimizer, labeled_data, device, epochs=4):
     """
@@ -52,7 +52,7 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device, epo
             )
             prob_two = 1 - prob_one
 
-            loss = -torch.mean(
+            loss = -(
                 labels[0] * torch.log(prob_one + 1e-8)
                 + labels[1] * torch.log(prob_two + 1e-8)
             )
@@ -63,9 +63,4 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device, epo
 
             epoch_loss += loss.item()
 
-        print(
-            f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(labeled_data):.4f}"
-        )
-
-    # Clear labeled data after training
-    labeled_data.clear()
+    print(f"Reward model updated")

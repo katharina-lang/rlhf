@@ -6,7 +6,6 @@ class Labeling:
     def __init__(self, segment_size=60, test=False):
         self.segment_size = segment_size
         self.test = test
-        self.labeled_data = []
 
     def preference_elicitation(self, segment_one, segment_two):
         """
@@ -31,19 +30,17 @@ class Labeling:
             (predicted_rewardOne, predicted_rewardTwo),
         )
 
-    def select_segments(self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer):
+    def select_segments(
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+    ):
         """
         Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
         """
-        # Sicherstellen, dass die Eingabedaten NumPy-Arrays sind
         obs_action_pair_buffer = np.array(obs_action_pair_buffer)
         env_reward_buffer = np.array(env_reward_buffer)
         predicted_rewards_buffer = np.array(predicted_rewards_buffer)
-        print(env_reward_buffer)
 
-        data_points = len(env_reward_buffer)  # Für Listen oder Arrays geeignet
-        print("Data points: " + str(len(env_reward_buffer)))
-        print("Segment amount: " + str(self.segment_size))
+        data_points = len(env_reward_buffer)
         segment_amount = data_points // self.segment_size
 
         segments = []
@@ -58,16 +55,23 @@ class Labeling:
 
         return segments
 
-    def get_labeled_data(self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer):
+    def get_labeled_data(
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+    ):
         """
         Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
         """
-        segments = self.select_segments(obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer)
+        labeled_data = []
+        segments = self.select_segments(
+            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+        )
 
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()
-            segments_label_reward = self.preference_elicitation(segment_one, segment_two)
-            self.labeled_data.append(segments_label_reward)
+            segments_label_reward = self.preference_elicitation(
+                segment_one, segment_two
+            )
+            labeled_data.append(segments_label_reward)
 
-        return self.labeled_data
+        return labeled_data
