@@ -109,7 +109,6 @@ class PPO:
                     torch.tensor(state_action_pairs)
                 )
 
-            # Warum sind die Pairs keine Pairs?
             self.save_data(state_action_pairs)
 
             # Data Storage (cleanrl)
@@ -121,6 +120,29 @@ class PPO:
                 self.device
             ), torch.Tensor(self.next_done).to(self.device)
 
+            # new gym api
+            if "episode" in infos:
+                eps = list(infos["episode"]["_t"])
+                done_envs = [
+                    i for i, finished in enumerate(eps) if finished is np.True_
+                ]
+                for i in done_envs:
+                    print(
+                        f"global_step={self.global_step}, episodic_return={infos['episode']['r'][i]}"
+                    )
+
+                    self.writer.add_scalar(
+                        "metrics/episodic_return",
+                        infos["episode"]["r"][i],
+                        self.global_step,
+                    )
+                    self.writer.add_scalar(
+                        "metrics/episodic_length",
+                        infos["episode"]["l"][i],
+                        self.global_step,
+                    )
+
+            # old gym api
             if "final_info" in infos:
                 for info in infos["final_info"]:
                     if info and "episode" in info:
@@ -128,12 +150,12 @@ class PPO:
                             f"global_step={self.global_step}, episodic_return={info['episode']['r']}"
                         )
                         self.writer.add_scalar(
-                            "charts/episodic_return",
+                            "metrics/episodic_return",
                             info["episode"]["r"],
                             self.global_step,
                         )
                         self.writer.add_scalar(
-                            "charts/episodic_length",
+                            "metrics/episodic_length",
                             info["episode"]["l"],
                             self.global_step,
                         )
