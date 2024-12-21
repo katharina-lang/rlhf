@@ -8,16 +8,22 @@ from rlhf.core.reward_model import train_reward_model
 from rlhf.core.labeling import Labeling
 from rlhf.core.agent import Agent
 
-    
 
 def start_rollout_loop(ppo, num_iterations):
     """
     Starts the main rollout loop for training the agent and the reward model.
-    
+
     Parameters:
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
+    # initial_segment_size = 5
+    # max_segment_size = 60
+    # half_iterations = args.num_iterations // 2
+    # increment = (max_segment_size - initial_segment_size) / half_iterations
+
+    segment_size = 60
+
     for iteration in range(1, num_iterations + 1):
         if ppo.args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / num_iterations
@@ -26,21 +32,39 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-        labeling = Labeling(segment_size=ppo.segment_size, test=False) 
-        labeled_data = labeling.get_labeled_data(ppo.obs_action_pair_buffer, ppo.env_reward_buffer, ppo.predicted_rewards_buffer)
+        # segment_size = min(
+        #     [max_segment_size, int(initial_segment_size + iteration * increment)]
+        # )
 
-        # Assign labeled data to the PPO agent
-        ppo.labeled_data = labeled_data
+        labeling = Labeling(segment_size)
+        labeled_data = labeling.get_labeled_data(
+            ppo.obs_action_pair_buffer,
+            ppo.env_reward_buffer,
+            ppo.predicted_rewards_buffer,
+        )
 
         # Process and train the reward model
-        # Reward_model, reward_optimizer, labeled_data, device, epochs=4
+        # Reward_model, reward_optimizer, labeled_data, device
         # Epochen müssen noch raus
-        train_reward_model(reward_model=ppo.reward_model, reward_optimizer=ppo.reward_optimizer, labeled_data=ppo.labeled_data, device=ppo.device, epochs=4)
+        train_reward_model(
+            reward_model=ppo.reward_model,
+            reward_optimizer=ppo.reward_optimizer,
+            labeled_data=labeled_data,
+            device=ppo.device,
+        )
 
-        # Perform advantage calculation and optimization
         ppo.advantage_calculation()
-        # optimize_agent_and_critic(self, obs, actions, logprobs, advantages, returns, values, optimizer, args)
-        ppo.agent.optimize_agent_and_critic(ppo.obs, ppo.actions, ppo.logprobs, ppo.advantages, ppo.returns, ppo.values, ppo.optimizer, ppo.args)
+
+        ppo.agent.optimize_agent_and_critic(
+            ppo.obs,
+            ppo.actions,
+            ppo.logprobs,
+            ppo.advantages,
+            ppo.returns,
+            ppo.values,
+            ppo.optimizer,
+            ppo.args,
+        )
 
         # Calculate explained variance for debugging purposes
         y_pred, y_true = ppo.values.cpu().numpy(), ppo.returns.cpu().numpy()
@@ -55,8 +79,7 @@ if __name__ == "__main__":
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    ppo = PPO(run_name, args, test_data = False)
-
+    ppo = PPO(run_name, args, test_data=False)
     # Start the rollout loop
     start_rollout_loop(ppo, args.num_iterations)
 

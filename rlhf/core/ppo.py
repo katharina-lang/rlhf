@@ -57,7 +57,6 @@ class PPO:
         self.next_done = torch.zeros(args.num_envs).to(self.device)
 
         # reward model setup
-        self.segment_size = self.args.segment_size
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
