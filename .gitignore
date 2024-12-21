@@ -1,5 +1,6 @@
 docs/
 venv/
+venv_clean/
 runs/
 models/
 videos/
