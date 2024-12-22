@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from rlhf.core.record_segments import record_video_for_segment
 
 
 class Labeling:
@@ -7,10 +8,12 @@ class Labeling:
         self.segment_size = segment_size
         self.test = test
 
-    def preference_elicitation(self, segment_one, segment_two):
+    def preference_elicitation(self, segment_one, segment_two, env_id):
         """
         Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
         """
+        record_video_for_segment(env_id, segment_one, f"segment_videos")
+        record_video_for_segment(env_id, segment_two, f"segment_videos")
         segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
         segment_obs_actionTwo, true_rewardTwo, predicted_rewardTwo = segment_two
 
@@ -56,7 +59,7 @@ class Labeling:
         return segments
 
     def get_labeled_data(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, env_id
     ):
         """
         Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
@@ -70,7 +73,7 @@ class Labeling:
             segment_one = segments.pop()
             segment_two = segments.pop()
             segments_label_reward = self.preference_elicitation(
-                segment_one, segment_two
+                segment_one, segment_two, env_id
             )
             labeled_data.append(segments_label_reward)
 

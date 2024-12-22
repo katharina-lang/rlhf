@@ -253,30 +253,3 @@ class PPO:
             "metrics/pearson_correlation", pearson_corr, self.global_step
         )
 
-    
-    
-    video_folder = 'videos'
-os.makedirs(video_folder, exist_ok=True)
-
-
-def record_video_for_segment(env, segment, video_folder):
-    
-    obs_action, true_reward, predicted_reward = segment
-    env = RecordVideo(env, video_folder=video_folder, episode_trigger=lambda, episode_id: True)
-
-    env.reset()  # Setze die Umgebung zurück (obwohl wir die State-Änderung manuell steuern)
-    
-    for i in range(len(obs_action)):
-        obs = obs_action[1][i]
-        action = obs_action[1][i]
-        
-        # Manuelle Setzung des States in die Umgebung (Wichtig!)
-        env.state = obs  # Setze den aktuellen Zustand der Umgebung (bei CartPole ist `state` ein Array)
-        
-        # Schritte ausführen (mit gespeicherter Action)
-        obs, reward, done, truncated, info = env.step(action)
-        
-        if done or truncated:
-            break  # Falls die Episode endet, kannst du sie beenden (falls du mehrere Episoden hast)
-
-    env.close()
