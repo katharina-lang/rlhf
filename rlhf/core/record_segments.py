@@ -1,26 +1,37 @@
-import gymnasium as gym 
+import gymnasium as gym
+import os
 
-def record_video_for_segment(env_id, segment, video_folder):
+def record_video_for_segment(env_id, segment, video_folder, iteration, segment_id):
+    """
+    Nimmt ein Video für ein bestimmtes Segment auf und speichert es in einem spezifischen Iterationsunterordner.
+    """
+    obs_action, _, _ = segment
+
+    # Erstelle einen Unterordner für die aktuelle Iteration
+    iteration_folder = os.path.join(video_folder, f"iteration_{iteration}")
+    os.makedirs(iteration_folder, exist_ok=True)
+
+    # Passe den RecordVideo-Wrapper an, um Videos eindeutig zu benennen
+    env = gym.wrappers.RecordVideo(
+        gym.make(env_id, render_mode='rgb_array'),
+        video_folder=iteration_folder,
+        episode_trigger=lambda episode_id: True,
+        name_prefix=f"segment_{segment_id}"  # Eindeutiger Name für das Video
+    )
+
+    env.reset()  # Setze die Umgebung zurück (obwohl wir die State-Änderung manuell steuern)
+    
+    for i in range(len(obs_action)):
+        obs = obs_action[i][:env.observation_space.shape[0]]
+        action = obs_action[i][env.observation_space.shape[0]:]
         
-        obs_action, true_reward, predicted_reward = segment
-        env = gym.make(env_id, render_mode='rgb_array')
-        obs_length = env.observation_space.shape[0]
-        action_length = env.action_space.shape[0]
-        env = gym.wrappers.RecordVideo(env, video_folder=video_folder, episode_trigger=lambda episode_id: True)
-
-        env.reset()  # Setze die Umgebung zurück (obwohl wir die State-Änderung manuell steuern)
+        # Manuelle Setzung des States in die Umgebung (Wichtig!)
+        env.state = obs  # Setze den aktuellen Zustand der Umgebung (bei CartPole ist `state` ein Array)
         
-        for i in range(len(obs_action)):
-            obs = obs_action[i][:obs_length]
-            action = obs_action[i][obs_length:obs_length + action_length]
-            
-            # Manuelle Setzung des States in die Umgebung (Wichtig!)
-            env.state = obs  # Setze den aktuellen Zustand der Umgebung (bei CartPole ist `state` ein Array)
-            
-            # Schritte ausführen (mit gespeicherter Action)
-            obs, reward, done, truncated, info = env.step(action)
-            
-            if done or truncated:
-                break
+        # Schritte ausführen (mit gespeicherter Action)
+        obs, _, done, truncated, _ = env.step(action)
+        
+        if done or truncated:
+            break
 
-        env.close()
+    env.close()

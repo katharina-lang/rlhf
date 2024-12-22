@@ -26,9 +26,16 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-        labeling = Labeling(segment_size=ppo.segment_size, test=False) 
-        labeled_data = labeling.get_labeled_data(ppo.obs_action_pair_buffer, ppo.env_reward_buffer, ppo.predicted_rewards_buffer, ppo.args.env_id)
+        Labeling.counter = 0
 
+        labeling = Labeling(segment_size=ppo.segment_size, test=False)
+        labeled_data = labeling.get_labeled_data(
+            ppo.obs_action_pair_buffer, 
+            ppo.env_reward_buffer, 
+            ppo.predicted_rewards_buffer, 
+            ppo.args.env_id, 
+            iteration  # Übergibt die Iteration
+        )
         # Assign labeled data to the PPO agent
         ppo.labeled_data = labeled_data
 
