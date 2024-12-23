@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rlhf</title>
+    <script>
+        async function sendAction(action) {
+            const response = await fetch('/button', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action })
+            });
+            const data = await response.json();
+            if (data.status) {
+                document.getElementById('status').innerText = `Status: ${data.status}`;
+            }
+        }
+    </script>
+     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .button-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .button {
+            position: absolute;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #button-top {
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #button-left {
+            top: 50%;
+            left: 40%;
+            transform: translateY(-50%);
+        }
+
+        #button-right {
+            top: 50%;
+            right: 40%;
+            transform: translateY(-50%);
+        }
+
+        #button-bottom {
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <h1>Which segment do you prefer?</h1>
+    <div style="display: flex; gap: 30px;">
+        <video controls autoplay loop muted width="400">
+            <source src="static\uploads\rl-video1-episode-0.mp4" type="video/mp4">
+            Video 1 nicht verfügbar.
+        </video>
+        <video controls autoplay loop muted width="400">
+            <source src="static\uploads\rl-video-episode-0.mp4" type="video/mp4">
+            Video 2 nicht verfügbar.
+        </video>
+    </div>
+
+    <!-- Buttons -->
+    <div class="button-container">
+        <button id="button-left" class="button" onclick="sendAction('left')">left</button>
+        <button id="button-right" class="button" onclick="sendAction('right')">right</button>
+        <button id="button-top" class="button" onclick="sendAction('equal')">equal</button>
+        <button id="button-bottom" class="button" onclick="sendAction('none')">none</button>  
+    </div>
+
+    <!-- Statusanzeige -->
+    <p id="status">Status: (-1, -1)</p>
+</body>
+</html>
