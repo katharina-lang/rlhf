@@ -1,20 +1,20 @@
 import gymnasium as gym
 import os
 
-def record_video_for_segment(env_id, segment, video_folder, iteration, segment_id):
+def record_video_for_segment(env_id, segment, video_folder, segment_id):
     """
     Nimmt ein Video für ein bestimmtes Segment auf und speichert es in einem spezifischen Iterationsunterordner.
     """
     obs_action, _, _ = segment
 
     # Erstelle einen Unterordner für die aktuelle Iteration
-    iteration_folder = os.path.join(video_folder, f"iteration_{iteration}")
+    iteration_folder = os.path.join(video_folder)
     os.makedirs(iteration_folder, exist_ok=True)
 
     # Passe den RecordVideo-Wrapper an, um Videos eindeutig zu benennen
     env = gym.wrappers.RecordVideo(
         gym.make(env_id, render_mode='rgb_array'),
-        video_folder=iteration_folder,
+        video_folder=video_folder,
         episode_trigger=lambda episode_id: True,
         name_prefix=f"segment_{segment_id}"  # Eindeutiger Name für das Video
     )

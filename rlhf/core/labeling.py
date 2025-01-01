@@ -1,7 +1,12 @@
 import numpy as np
 import torch
+import os
+import shutil
+import requests
+import time
+from threading import Thread
+from rlhf.utils.app import start_flask
 from rlhf.core.record_segments import record_video_for_segment
-
 
 class Labeling:
 
@@ -15,22 +20,68 @@ class Labeling:
         """
         Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
         """
-        record_video_for_segment(env_id, segment_one, f"segment_videos", iteration, self.counter)
+        # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann
+        record_video_for_segment(env_id, segment_one, f"segment_videos", self.counter)
         self.counter += 1
-        record_video_for_segment(env_id, segment_two, f"segment_videos", iteration, self.counter)
+        record_video_for_segment(env_id, segment_two, f"segment_videos", self.counter)
         self.counter += 1
 
-        segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
-        segment_obs_actionTwo, true_rewardTwo, predicted_rewardTwo = segment_two
+        video_paths = []
+        video_files = os.listdir('C:/users/hanna/rlhf/segment_videos')
+        videos = [f for f in video_files if f.endswith('.mp4')]
+        
+        video_paths.append(f"C:/users/hanna/rlhf/segment_videos/{videos[0]}")
+        video_paths.append(f"C:/users/hanna/rlhf/segment_videos/{videos[1]}")
 
-        if true_rewardOne > true_rewardTwo:
-            labelOne = 1
-            labelTwo = 0
-        elif true_rewardTwo > true_rewardOne:
-            labelOne = 0
-            labelTwo = 1
-        else:
-            labelOne = labelTwo = 0.5
+        # verschieben
+        for video in video_paths:
+            shutil.move(video, 'C:/users/hanna/rlhf/rlhf/utils/static/uploads')
+
+        while True:
+                try:
+                    while True:
+                        # Button-Drücke bekommen
+                        response = requests.get('http://127.0.0.1:5000/status')
+                        state = response.json()
+                        button_status = state['status']
+                        response2 = requests.get('http://127.0.0.1:5000/set')
+                        state2 = response2.json()
+                        button_set = state2['set']
+                        print(button_status)
+                        print(button_set)
+                        # falls Button gedrückt wurde, weitergehen, sonst darauf warten
+                        if (button_set == True):
+                            break
+                        time.sleep(2)
+
+                    if (button_set == True):
+                        # labeln
+                        segment_obs_actionOne, _, predicted_rewardOne = segment_one
+                        segment_obs_actionTwo, _, predicted_rewardTwo = segment_two
+                        labelOne, labelTwo = button_status
+
+                        # Button auf ungedrückt setzen
+                        button_set = False
+                        response = requests.post('http://127.0.0.1:5000/set', json={"new_value": button_set})
+
+                        print('label gesetzt', button_status)
+
+                        # fertig verarbeitete Videos aus Ordner löschen
+                        video_paths2 = []
+                        video_files2 = os.listdir('C:/users/hanna/rlhf/rlhf/utils/static/uploads')
+                        videos2 = [f2 for f2 in video_files2 if f2.endswith('.mp4')]
+                        video_paths2.append(f"C:/users/hanna/rlhf/rlhf/utils/static/uploads/{videos2[0]}")
+                        video_paths2.append(f"C:/users/hanna/rlhf/rlhf/utils/static/uploads/{videos2[1]}")
+
+                        for video2 in video_paths2:
+                            os.remove(video2)
+
+                        break
+                    time.sleep(1)
+
+                except requests.exceptions.ConnectionError as e:
+                    print(f"Fehler bei der Verbindung zum Flask-Server: {e}")
+                    time.sleep(1)
 
         return (
             segment_obs_actionOne,
@@ -75,6 +126,10 @@ class Labeling:
             obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
         )
 
+        # Flask als Thread starten
+        flask_thread = Thread(target=start_flask)
+        flask_thread.start()
+
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()
@@ -82,5 +137,7 @@ class Labeling:
                 segment_one, segment_two, env_id, iteration
             )
             labeled_data.append(segments_label_reward)
+        
+        flask_thread.join
 
         return labeled_data

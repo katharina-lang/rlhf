@@ -5,18 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>rlhf</title>
     <script>
+        // hier werden die Videos geladen. Ist es ein Problem, dass die Fuktion async ist? Werden sie deshalb nicht neu geladen?
+        async function loadVideos() {
+                try {
+                    const response = await fetch('/get-videos');
+                    if (!response.ok) {
+                        throw new Error('Keine Videos gefunden');
+                    }
+                    const data = await response.json();
+
+                    // Video-Container leeren
+                    const videoContainer = document.getElementById('video-container');
+                    videoContainer.innerHTML = '';
+
+                    // Videos hinzufügen
+                    data.videos.forEach(video => {
+                        const videoElement = document.createElement('video');
+                        videoElement.controls = true;
+                        videoElement.autoplay = true;
+                        videoElement.loop = true;
+                        videoElement.muted = true;
+                        videoElement.width = 400;
+
+                        const sourceElement = document.createElement('source');
+                        sourceElement.src = video;
+                        sourceElement.type = 'video/mp4';
+
+                        videoElement.appendChild(sourceElement);
+                        videoContainer.appendChild(videoElement);
+                    });
+                } catch (error) {
+                    console.error('Fehler beim Laden der Videos:', error);
+                    document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
+                }
+            }
+
+        // Button-Druck
         async function sendAction(action) {
-            const response = await fetch('/button', {
+            const response = await fetch('/button_action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: action })
             });
+            if (response.ok) {
+                loadVideos(); // Lade Videos neu, nach Button-Druck, funktioniert das? Vielleicht muss man länger warten, weil neues Video noch nicht fertig?
+            }
             const data = await response.json();
             if (data.status) {
                 document.getElementById('status').innerText = `Status: ${data.status}`;
             }
         }
+        loadVideos();
     </script>
+    <!-- Position der Buttons festlegen -->
      <style>
         body {
             margin: 0;
@@ -64,19 +105,19 @@
             left: 50%;
             transform: translateX(-50%);
         }
+
+        #button-start {
+            bottom: 10px;
+            left: 20%;
+            transform: translateX(-50%);
+        }
     </style>
 </head>
 <body>
+    <!--Videos, nicht statisch festgelegt welche geladen-->
     <h1>Which segment do you prefer?</h1>
-    <div style="display: flex; gap: 30px;">
-        <video controls autoplay loop muted width="400">
-            <source src="static\uploads\rl-video1-episode-0.mp4" type="video/mp4">
-            Video 1 nicht verfügbar.
-        </video>
-        <video controls autoplay loop muted width="400">
-            <source src="static\uploads\rl-video-episode-0.mp4" type="video/mp4">
-            Video 2 nicht verfügbar.
-        </video>
+    <div id="video-container" style="display: flex; gap: 30px;">
+        <p>Keine Videos geladen.</p>
     </div>
 
     <!-- Buttons -->
@@ -85,9 +126,10 @@
         <button id="button-right" class="button" onclick="sendAction('right')">right</button>
         <button id="button-top" class="button" onclick="sendAction('equal')">equal</button>
         <button id="button-bottom" class="button" onclick="sendAction('none')">none</button>  
+        <button id="button-start" class="button" onclick="sendAction('start')">start</button>  
     </div>
 
-    <!-- Statusanzeige -->
+    <!-- Statusanzeige (Optional) -->
     <p id="status">Status: (-1, -1)</p>
 </body>
 </html>
