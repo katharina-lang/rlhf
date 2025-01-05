@@ -8,8 +8,6 @@ from rlhf.core.reward_model import train_reward_model
 from rlhf.core.labeling import Labeling
 from rlhf.core.agent import Agent
 
-    
-
 def start_rollout_loop(ppo, num_iterations):
     """
     Starts the main rollout loop for training the agent and the reward model.

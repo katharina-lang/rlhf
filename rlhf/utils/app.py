@@ -5,7 +5,7 @@ import time
 app = Flask(__name__)
 
 # Verzeichnis für hochgeladene Dateien
-UPLOAD_FOLDER = 'static/uploads'
+UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
