@@ -21,51 +21,6 @@ class RewardModel(nn.Module):
         return self.model(x)
 
 
-# def train_reward_model(reward_model, reward_optimizer, labeled_data, device):
-#     """
-#     Trainiert das Reward-Modell anhand der gelabelten Daten.
-#     """
-#     reward_model.train()
-#     epochs=4
-#     for epoch in range(epochs):
-#         epoch_loss = 0
-
-#         for labeled_pair in labeled_data:
-#             (
-#                 segment_obs_actionOne,
-#                 segment_obs_actionTwo,
-#                 (labelOne, labelTwo),
-#                 (predicted_rewardOne, predicted_rewardTwo),
-#             ) = labeled_pair
-
-#             segment_obs_actionOne = torch.tensor(segment_obs_actionOne, device=device)
-#             segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo, device=device)
-
-#             predicted_rewardOne = reward_model(segment_obs_actionOne).sum()
-#             predicted_rewardTwo = reward_model(segment_obs_actionTwo).sum()
-#             labels = torch.tensor(
-#                 [labelOne, labelTwo], dtype=torch.float32, device=device
-#             )
-
-#             prob_one = torch.exp(predicted_rewardOne) / (
-#                 torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
-#             )
-#             prob_two = 1 - prob_one
-
-#             loss = -(
-#                 labels[0] * torch.log(prob_one + 1e-8)
-#                 + labels[1] * torch.log(prob_two + 1e-8)
-#             )
-
-#             reward_optimizer.zero_grad()
-#             loss.backward()
-#             reward_optimizer.step()
-
-#             epoch_loss += loss.item()
-
-#     print(f"Reward model updated")
-
-
 def train_reward_model(reward_model, reward_optimizer, labeled_data, device):
     """Train the reward model not using stored predicted rewards. :("""
     reward_model.train()
@@ -109,5 +64,3 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device):
     optimizer.step()
 
     print("Reward Model updated")
-    # average_loss = total_loss.item() / len(labeled_data)
-    # print(f"Average_Loss: {average_loss:.4f}")
