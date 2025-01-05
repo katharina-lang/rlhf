@@ -28,10 +28,6 @@ class Labeling:
         segment_dir = os.path.join(base_dir, 'segment_videos')
         upload_dir = os.path.join(base_dir, 'uploads')
 
-        print(f"Pfad zu segment_dir: {segment_dir}")
-        print(f"Pfad zu base_dir: {base_dir}")
-        print(f"Pfad zu upload_dir: {upload_dir}")
-
         # Verzeichnisse erstellen, falls sie nicht existieren
         os.makedirs(segment_dir, exist_ok=True)
         os.makedirs(upload_dir, exist_ok=True)
@@ -49,22 +45,21 @@ class Labeling:
                     except Exception as e:
                         print(f"Fehler beim Löschen von {file_path}: {e}")
 
-        clear_directory(segment_dir)
-        clear_directory(upload_dir)
-        # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann
-        record_video_for_segment(env_id, segment_one, f"segment_videos", self.counter)
-        self.counter += 1
-        record_video_for_segment(env_id, segment_two, f"segment_videos", self.counter)
-        self.counter += 1
 
+        #clear_directory(segment_dir)
+        #clear_directory(upload_dir)
+
+
+        # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann
+        record_video_for_segment(env_id, segment_one, segment_dir, self.counter)
+        self.counter += 1
+        record_video_for_segment(env_id, segment_two, segment_dir, self.counter)
+        self.counter += 1
 
         # in video_files werden alle Dateien im angegebenen Pfad aufgelistet (['video1.mp4','video2.mp4'])
         video_files = [f for f in os.listdir(segment_dir) if f.endswith('.mp4')]
         # Dateinamen aller enthaltenen Videos (Endung .mp4) in einer Liste videos speichern (sollten genau 2 sein)
         video_paths = [os.path.join(segment_dir, video) for video in video_files[:2]]
-        print(f"Pfad zu segment_dir 2: {segment_dir}")
-        print(f"Gefundene Videos in segment_videos: {video_files}")
-        print(f"Video-Pfade für Verschiebung: {video_paths}")
 
         # shutil.move nimmt den Dateipfad von der Datei, die verschoben werden soll und den Pfad zu der Stelle, wo
         # die Datei hinverschoben werden soll und verschiebt die betreffende Datei dann
