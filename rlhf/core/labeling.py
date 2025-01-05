@@ -24,9 +24,12 @@ class Labeling:
         # Verzeichnisse flexibel erstellen
         # Basispfad wird dynamisch über abspath bestimmt, Ordner werden mit makedirs erstellt, falls sie nicht existieren
         # Dateien und Pfade werden mit path.join zusammengesetzt
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        print("Basedirectory: " + base_dir)
         segment_dir = os.path.join(base_dir, 'segment_videos')
-        upload_dir = os.path.join(base_dir, 'uploads')
+        print("Segment_dir: " + segment_dir)
+        upload_dir = os.path.join(base_dir, '..','..', 'uploads')
+        print("Upload_dir: " + upload_dir)
 
         # Verzeichnisse erstellen, falls sie nicht existieren
         os.makedirs(segment_dir, exist_ok=True)
@@ -46,8 +49,8 @@ class Labeling:
                         print(f"Fehler beim Löschen von {file_path}: {e}")
 
 
-        #clear_directory(segment_dir)
-        #clear_directory(upload_dir)
+        clear_directory(segment_dir)
+        clear_directory(upload_dir)
 
 
         # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann

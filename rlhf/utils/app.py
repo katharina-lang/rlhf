@@ -4,6 +4,8 @@ import time
 
 app = Flask(__name__)
 
+print("Aktuelles Arbeitsverzeichnis: ", os.getcwd())
+
 # Verzeichnis für hochgeladene Dateien
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -49,6 +51,8 @@ def button_action():
         button_set = button_set
     else:
         return jsonify({'error': 'Ungültige Aktion'}), 400
+
+    print("Aktueller Button-Set: ", button_set)
 
     # neue Videos laden
     video_files = os.listdir(app.config['UPLOAD_FOLDER']) # hier gibt es ein Problem: in der Liste video_files (und deswegen auch in videos und video_paths) sind immer nur die ersten zwei Videos (segment 0 und 1), obwohl im Ordner schon die neuen sind, wie kann das sein?
@@ -111,7 +115,14 @@ def set_set():
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     print("uploaded_file")
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, cache_timeout=0)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    # Sende die Datei mit Cache-Control Header für kein Caching
+    response = send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    response.cache_control.no_cache = True
+    response.cache_control.no_store = True
+    response.cache_control.must_revalidate = True
+    return response
 
 # Flask Thread starten
 def start_flask():
