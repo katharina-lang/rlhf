@@ -10,3 +10,4 @@ __pycache__/
 venv2/
 segment_videos/
 runs/
+uploads/
