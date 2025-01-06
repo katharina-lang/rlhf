@@ -83,6 +83,14 @@ def button_action():
 def get_videos():
     print("get_videos", flush=True)
     global video_paths
+    
+    # Wenn `video_paths` leer ist, lade Videos aus dem Upload-Ordner
+    if not video_paths:
+        video_files = os.listdir(app.config['UPLOAD_FOLDER'])
+        videos = [f"/{app.config['UPLOAD_FOLDER']}/{f}" for f in video_files if f.endswith('.mp4')]
+        video_paths.extend(videos)
+        print("Video-Pfade aus Upload-Ordner geladen:", video_paths, flush=True)
+    
     print("Video-Pfade, die an das Template gesendet werden:", video_paths, flush=True)
     return jsonify({'videos': video_paths})
 
