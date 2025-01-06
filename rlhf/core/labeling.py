@@ -26,13 +26,10 @@ class Labeling:
         # Dateien und Pfade werden mit path.join zusammengesetzt
         base_dir = os.path.dirname(os.path.abspath(__file__))
         print("Basedirectory: " + base_dir)
-        segment_dir = os.path.join(base_dir, 'segment_videos')
-        print("Segment_dir: " + segment_dir)
         upload_dir = os.path.join(base_dir, '..','..', 'uploads')
         print("Upload_dir: " + upload_dir)
 
         # Verzeichnisse erstellen, falls sie nicht existieren
-        os.makedirs(segment_dir, exist_ok=True)
         os.makedirs(upload_dir, exist_ok=True)
 
         # Verzeichnisse leeren
@@ -48,31 +45,14 @@ class Labeling:
                     except Exception as e:
                         print(f"Fehler beim Löschen von {file_path}: {e}")
 
-
-        clear_directory(segment_dir)
         clear_directory(upload_dir)
 
 
         # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann
-        record_video_for_segment(env_id, segment_one, segment_dir, self.counter)
+        record_video_for_segment(env_id, segment_one, upload_dir, self.counter)
         self.counter += 1
-        record_video_for_segment(env_id, segment_two, segment_dir, self.counter)
+        record_video_for_segment(env_id, segment_two, upload_dir, self.counter)
         self.counter += 1
-
-        # in video_files werden alle Dateien im angegebenen Pfad aufgelistet (['video1.mp4','video2.mp4'])
-        video_files = [f for f in os.listdir(segment_dir) if f.endswith('.mp4')]
-        # Dateinamen aller enthaltenen Videos (Endung .mp4) in einer Liste videos speichern (sollten genau 2 sein)
-        video_paths = [os.path.join(segment_dir, video) for video in video_files[:2]]
-
-        # shutil.move nimmt den Dateipfad von der Datei, die verschoben werden soll und den Pfad zu der Stelle, wo
-        # die Datei hinverschoben werden soll und verschiebt die betreffende Datei dann
-        # Verbesserungsvorschlag von ChatGPT:
-        # target_folder = 'C:/users/hanna/rlhf/rlhf/utils/static/uploads'
-        # os.makedirs(target_folder, exist_ok=True)
-        # for video in video_paths:
-        #   shutil.move(video, os.path.join(target_folder, os.path.basename(video)))
-        for video in video_paths:
-            shutil.move(video, upload_dir)
 
         # Äußere Schleife sorgt für eine Wiederholung, falls es beim Abruf der Serverdaten zu einem Fehler kommt
         while True:

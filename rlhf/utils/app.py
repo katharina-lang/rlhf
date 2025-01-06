@@ -20,6 +20,8 @@ button_status = (-1, -1) # das Label
 button_set = False # wurde für diese Segmente schon ein Button gedrückt (=> kann neues Label von labeling.py abgefragt werden)?
 video_paths = [] # aktuelle Videos
 
+print(f"Video-Dateien in uploads: {os.listdir(app.config['UPLOAD_FOLDER'])}", flush=True)
+
 @app.route('/')
 def index():
     print("index")
@@ -28,7 +30,7 @@ def index():
 # wenn Button gedrückt
 @app.route('/button_action', methods=['POST'])
 def button_action():
-    print("button_action")
+    print("button_action", flush=True)
     global button_status
     global button_set
     action = request.json.get('action')
@@ -36,7 +38,7 @@ def button_action():
     if action == 'left':
         button_status = (1, 0)
         button_set = True # Button wurde gedrückt
-        print("links gedrückt und gespeichert")
+        print("links gedrückt und gespeichert", flush=True)
     elif action == 'right':
         button_status = (0, 1)
         button_set = True
@@ -52,13 +54,13 @@ def button_action():
     else:
         return jsonify({'error': 'Ungültige Aktion'}), 400
 
-    print("Aktueller Button-Set: ", button_set)
+    print("Aktueller Button-Set: ", button_set, flush=True)
 
     # neue Videos laden
     video_files = os.listdir(app.config['UPLOAD_FOLDER']) # hier gibt es ein Problem: in der Liste video_files (und deswegen auch in videos und video_paths) sind immer nur die ersten zwei Videos (segment 0 und 1), obwohl im Ordner schon die neuen sind, wie kann das sein?
-    print('Video_files: ', video_files)
+    print('Video_files: ', video_files, flush=True)
     videos = [f for f in video_files if f.endswith('.mp4')]
-    print(videos)
+    print(videos, flush=True)
     global video_paths
     video_paths.clear()
 
@@ -69,41 +71,41 @@ def button_action():
     # aktuelle Videos
     video_paths.append(f"/{app.config['UPLOAD_FOLDER']}/{videos[0]}")
     video_paths.append(f"/{app.config['UPLOAD_FOLDER']}/{videos[1]}")
-    print("videos in video_paths")
-    print(video_paths)
+    print("videos in video_paths", flush=True)
+    print(video_paths, flush=True)
 
-    print('in button_action: ', button_set)
+    print('in button_action: ', button_set, flush=True)
 
     return jsonify({'status': button_status, 'set': button_set, 'videos': video_paths})
 
 # Videos an frontend senden
 @app.route('/get-videos', methods=['GET'])
 def get_videos():
-    print("get_videos")
+    print("get_videos", flush=True)
     global video_paths
-    print("Video-Pfade, die an das Template gesendet werden:", video_paths)
+    print("Video-Pfade, die an das Template gesendet werden:", video_paths, flush=True)
     return jsonify({'videos': video_paths})
 
 # Label an labeling.py
 @app.route('/status', methods=['GET'])
 def get_status():
-    print("status")
+    print("status", flush=True)
     global button_status
-    print('von app: ', button_status)
+    print('von app: ', button_status, flush=True)
     return jsonify({'status': button_status})
 
 # Wurde Button gedrückt an labeling.py
 @app.route('/set', methods=['GET'])
 def get_set():
-    print("set (GET)")
+    print("set (GET)", flush=True)
     global button_set
-    print('von app: ', button_set)
+    print('von app: ', button_set, flush=True)
     return jsonify({'set': button_set})
 
 # von labeling.py, button_set nach Verarbeitung der Label wieder auf False setzen
 @app.route('/set', methods=['POST'])
 def set_set():
-    print("set (POST)")
+    print("set (POST)", flush=True)
     global button_set
     data = request.json  # Erwartet JSON-Daten
     if "new_value" in data:
@@ -114,7 +116,7 @@ def set_set():
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    print("uploaded_file")
+    print("uploaded_file", flush=True)
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     
     # Sende die Datei mit Cache-Control Header für kein Caching
@@ -127,7 +129,7 @@ def uploaded_file(filename):
 # Flask Thread starten
 def start_flask():
     """Startet die Flask-App."""
-    app.run(debug=False, use_reloader=False)
+    app.run(debug=True, use_reloader=False)
 
 if __name__ == '__main__':
     start_flask()
