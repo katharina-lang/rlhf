@@ -24,10 +24,12 @@ class Labeling:
         # Verzeichnisse flexibel erstellen
         # Basispfad wird dynamisch über abspath bestimmt, Ordner werden mit makedirs erstellt, falls sie nicht existieren
         # Dateien und Pfade werden mit path.join zusammengesetzt
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        print("Basedirectory: " + base_dir)
-        upload_dir = os.path.join(base_dir, '..','..', 'uploads')
-        print("Upload_dir: " + upload_dir)
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        upload_dir = os.path.join(base_dir, 'uploads')
+
+        # Debugging
+        print("Base Directory:", base_dir, flush=True)
+        print("Upload Directory:", upload_dir, flush=True)
 
         # Verzeichnisse erstellen, falls sie nicht existieren
         os.makedirs(upload_dir, exist_ok=True)

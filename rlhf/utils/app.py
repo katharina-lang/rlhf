@@ -4,11 +4,10 @@ import time
 
 app = Flask(__name__)
 
-print("Aktuelles Arbeitsverzeichnis: ", os.getcwd())
-
-# Verzeichnis für hochgeladene Dateien
-UPLOAD_FOLDER = 'uploads'
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+print("UPLOAD_FOLDER: ", UPLOAD_FOLDER)
 
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
@@ -69,8 +68,8 @@ def button_action():
         time.sleep(2)
 
     # aktuelle Videos
-    video_paths.append(f"/{app.config['UPLOAD_FOLDER']}/{videos[0]}")
-    video_paths.append(f"/{app.config['UPLOAD_FOLDER']}/{videos[1]}")
+    video_paths.append(f"/uploads/{videos[0]}")
+    video_paths.append(f"/uploads/{videos[1]}")
     print("videos in video_paths", flush=True)
     print(video_paths, flush=True)
 
@@ -87,7 +86,7 @@ def get_videos():
     # Wenn `video_paths` leer ist, lade Videos aus dem Upload-Ordner
     if not video_paths:
         video_files = os.listdir(app.config['UPLOAD_FOLDER'])
-        videos = [f"/{app.config['UPLOAD_FOLDER']}/{f}" for f in video_files if f.endswith('.mp4')]
+        videos = [f"/uploads/{f}" for f in video_files if f.endswith('.mp4')]
         video_paths.extend(videos)
         print("Video-Pfade aus Upload-Ordner geladen:", video_paths, flush=True)
     
