@@ -27,9 +27,6 @@ class Labeling:
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         upload_dir = os.path.join(base_dir, 'uploads')
 
-        # Debugging
-        print("Base Directory:", base_dir, flush=True)
-        print("Upload Directory:", upload_dir, flush=True)
 
         # Verzeichnisse erstellen, falls sie nicht existieren
         os.makedirs(upload_dir, exist_ok=True)
@@ -51,9 +48,9 @@ class Labeling:
 
 
         # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann
-        record_video_for_segment(env_id, segment_one, upload_dir, self.counter)
+        record_video_for_segment(env_id, segment_one, upload_dir, self.counter, iteration)
         self.counter += 1
-        record_video_for_segment(env_id, segment_two, upload_dir, self.counter)
+        record_video_for_segment(env_id, segment_two, upload_dir, self.counter, iteration)
         self.counter += 1
 
         # Äußere Schleife sorgt für eine Wiederholung, falls es beim Abruf der Serverdaten zu einem Fehler kommt
@@ -122,7 +119,7 @@ class Labeling:
         )
 
     def select_segments(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, amount_preferences
     ):
         """
         Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
@@ -132,7 +129,7 @@ class Labeling:
         predicted_rewards_buffer = np.array(predicted_rewards_buffer)
 
         data_points = len(env_reward_buffer)
-        segment_amount = data_points // self.segment_size
+        segment_amount = amount_preferences*2
 
         segments = []
         for _ in range(segment_amount):
@@ -147,14 +144,14 @@ class Labeling:
         return segments
 
     def get_labeled_data(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, env_id, iteration
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, env_id, iteration, amount_preferences
     ):
         """
         Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
         """
         labeled_data = []
         segments = self.select_segments(
-            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, amount_preferences
         )
 
         # Flask als Thread starten

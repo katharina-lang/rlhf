@@ -27,7 +27,7 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device, epo
     """
     reward_model.train()
 
-    for epoch in range(epochs):
+    for _ in range(epochs):
         epoch_loss = 0
 
         for labeled_pair in labeled_data:
@@ -63,4 +63,3 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device, epo
 
             epoch_loss += loss.item()
 
-    print(f"Reward model updated")

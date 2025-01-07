@@ -32,7 +32,8 @@ def start_rollout_loop(ppo, num_iterations):
             ppo.env_reward_buffer, 
             ppo.predicted_rewards_buffer, 
             ppo.args.env_id, 
-            iteration  # Übergibt die Iteration
+            iteration,  # Übergibt die Iteration
+            ppo.args.amount_preferences
         )
         # Assign labeled data to the PPO agent
         ppo.labeled_data = labeled_data
@@ -41,7 +42,7 @@ def start_rollout_loop(ppo, num_iterations):
         # Reward_model, reward_optimizer, labeled_data, device, epochs=4
         # Epochen müssen noch raus
         train_reward_model(reward_model=ppo.reward_model, reward_optimizer=ppo.reward_optimizer, labeled_data=ppo.labeled_data, device=ppo.device, epochs=4)
-
+        
         # Perform advantage calculation and optimization
         ppo.advantage_calculation()
         # optimize_agent_and_critic(self, obs, actions, logprobs, advantages, returns, values, optimizer, args)

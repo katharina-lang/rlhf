@@ -67,3 +67,5 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
+    amount_preferences: int = 2
+    """number of preferences per episode"""

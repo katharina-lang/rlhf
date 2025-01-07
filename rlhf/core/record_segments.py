@@ -1,7 +1,8 @@
 import gymnasium as gym
 import os
+import glob
 
-def record_video_for_segment(env_id, segment, video_folder, segment_id):
+def record_video_for_segment(env_id, segment, video_folder, segment_id, iteration):
     """
     Nimmt ein Video für ein bestimmtes Segment auf und speichert es in einem spezifischen Iterationsunterordner.
     """
@@ -16,7 +17,7 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id):
         gym.make(env_id, render_mode='rgb_array'),
         video_folder=video_folder,
         episode_trigger=lambda episode_id: True,
-        name_prefix=f"segment_{segment_id}"  # Eindeutiger Name für das Video
+        name_prefix=f"segment_{segment_id}_iteration_{iteration}"  # Eindeutiger Name für das Video
     )
 
     env.reset()  # Setze die Umgebung zurück (obwohl wir die State-Änderung manuell steuern)
@@ -34,4 +35,14 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id):
         if done or truncated:
             break
 
-    env.close()
+    
+    env.close() 
+    
+    # Umbenennen des Videos, um `episode_0` zu entfernen
+    video_files = glob.glob(os.path.join(video_folder, f"segment_{segment_id}_iteration_{iteration}-episode-0.mp4"))
+    for video_file in video_files:
+        new_name = os.path.join(video_folder, f"segment_{segment_id}_iteration_{iteration}.mp4")
+        os.rename(video_file, new_name)
+
+    
+    
