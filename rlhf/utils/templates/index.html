@@ -5,40 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>rlhf</title>
     <script>
-        // Logik bleibt unverändert.
+        // hier werden die Videos geladen. Ist es ein Problem, dass die Fuktion async ist? Werden sie deshalb nicht neu geladen?
         async function loadVideos() {
-            try {
-                const response = await fetch('/get-videos');
-                if (!response.ok) {
-                    throw new Error('Keine Videos gefunden');
+                try {
+                    const response = await fetch('/get-videos');
+                    if (!response.ok) {
+                        throw new Error('Keine Videos gefunden');
+                    }
+                    const data = await response.json();
+
+                    // Video-Container leeren
+                    const videoContainer = document.getElementById('video-container');
+                    videoContainer.innerHTML = '';
+
+                    // Videos hinzufügen
+                    data.videos.forEach(video => {
+                        const videoElement = document.createElement('video');
+                        videoElement.controls = true;
+                        videoElement.autoplay = true;
+                        videoElement.loop = true;
+                        videoElement.muted = true;
+                        videoElement.width = 400;
+
+                        const sourceElement = document.createElement('source');
+                        sourceElement.src = video;
+                        sourceElement.type = 'video/mp4';
+
+                        videoElement.appendChild(sourceElement);
+                        videoContainer.appendChild(videoElement);
+                    });
+                } catch (error) {
+                    console.error('Fehler beim Laden der Videos:', error);
+                    document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
                 }
-                const data = await response.json();
-
-                // Video-Container leeren
-                const videoContainer = document.getElementById('video-container');
-                videoContainer.innerHTML = '';
-
-                // Videos hinzufügen
-                data.videos.forEach(video => {
-                    const videoElement = document.createElement('video');
-                    videoElement.controls = true;
-                    videoElement.autoplay = true;
-                    videoElement.loop = true;
-                    videoElement.muted = true;
-
-                    const sourceElement = document.createElement('source');
-                    sourceElement.src = video;
-                    sourceElement.type = 'video/mp4';
-
-                    videoElement.appendChild(sourceElement);
-                    videoContainer.appendChild(videoElement);
-                });
-            } catch (error) {
-                console.error('Fehler beim Laden der Videos:', error);
-                document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
             }
-        }
 
+        // Button-Druck
         async function sendAction(action) {
             const response = await fetch('/button_action', {
                 method: 'POST',
@@ -46,7 +48,7 @@
                 body: JSON.stringify({ action: action })
             });
             if (response.ok) {
-                loadVideos(); // Lade Videos neu, nach Button-Druck
+                loadVideos(); // Lade Videos neu, nach Button-Druck, funktioniert das? Vielleicht muss man länger warten, weil neues Video noch nicht fertig?
             }
             const data = await response.json();
             if (data.status) {
@@ -55,105 +57,79 @@
         }
         loadVideos();
     </script>
-    <style>
-        /* Basis-Layout */
+    <!-- Position der Buttons festlegen -->
+     <style>
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
+            height: 100vh;
+            justify-content: space-between;
             align-items: center;
-            background-color: #f9f9f9;
-            color: black;
         }
 
-        h1 {
-            margin: 20px 0;
-            font-size: 2rem;
-            text-align: center;
-        }
-
-        /* Container für Videos */
-        #video-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-            width: 100%;
-            max-width: 1200px;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-
-        #video-container video {
-            width: 48%; /* Videos nehmen immer etwa die Hälfte des Containers ein */
-            height: auto;
-            border: 2px solid #ccc;
-            border-radius: 8px;
-        }
-
-        /* Button-Container */
         .button-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
+            position: relative;
             width: 100%;
-            max-width: 1200px;
-            padding: 10px;
-            box-sizing: border-box;
+            height: 100%;
         }
 
-        .button-container button {
-            flex: 1; /* Alle Buttons haben die gleiche Breite */
-            padding: 15px;
-            font-size: 1rem;
-            background-color: #ccc;
-            border: none;
-            border-radius: 5px;
+        .button {
+            position: absolute;
+            padding: 10px 20px;
+            font-size: 16px;
             cursor: pointer;
-            text-align: center;
-            transition: background-color 0.3s ease;
         }
 
-        .button-container button:hover {
-            background-color: #aaa;
+        #button-top {
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
-        /* Videos und Buttons immer nebeneinander */
-        @media (max-width: 768px) {
-            #video-container {
-                flex-wrap: nowrap; /* Videos bleiben nebeneinander */
-            }
+        #button-left {
+            top: 50%;
+            left: 40%;
+            transform: translateY(-50%);
+        }
 
-            .button-container {
-                flex-wrap: nowrap; /* Buttons bleiben nebeneinander */
-            }
+        #button-right {
+            top: 50%;
+            right: 40%;
+            transform: translateY(-50%);
+        }
 
-            #video-container video,
-            .button-container button {
-                flex: 1 1 50%; /* Videos und Buttons teilen sich die Breite */
-            }
+        #button-bottom {
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #button-start {
+            bottom: 10px;
+            left: 20%;
+            transform: translateX(-50%);
         }
     </style>
 </head>
 <body>
-    <!-- Titel -->
+    <!--Videos, nicht statisch festgelegt welche geladen-->
     <h1>Which segment do you prefer?</h1>
-
-    <!-- Video-Container -->
-    <div id="video-container">
+    <div id="video-container" style="display: flex; gap: 30px;">
         <p>Keine Videos geladen.</p>
     </div>
 
     <!-- Buttons -->
     <div class="button-container">
-        <button onclick="sendAction('left')">Left</button>
-        <button onclick="sendAction('right')">Right</button>
-        <button onclick="sendAction('equal')">Equal</button>
-        <button onclick="sendAction('none')">None</button>
+        <button id="button-left" class="button" onclick="sendAction('left')">left</button>
+        <button id="button-right" class="button" onclick="sendAction('right')">right</button>
+        <button id="button-top" class="button" onclick="sendAction('equal')">equal</button>
+        <button id="button-bottom" class="button" onclick="sendAction('none')">none</button>  
+        <button id="button-start" class="button" onclick="sendAction('start')">start</button>  
     </div>
 
-    <!-- Statusanzeige -->
+    <!-- Statusanzeige (Optional) -->
     <p id="status">Status: (-1, -1)</p>
 </body>
 </html>
