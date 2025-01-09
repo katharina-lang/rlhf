@@ -34,23 +34,21 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device):
             segment_obs_actionOne,
             segment_obs_actionTwo,
             (labelOne, labelTwo),
-            (predicted_rewardOne, predicted_rewardTwo),
+            (pred_r1, pred_r2),
         ) = labeled_pair
 
         segment_obs_actionOne = torch.tensor(segment_obs_actionOne, device=device)
         segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo, device=device)
 
-        predicted_rewardOne = reward_model(segment_obs_actionOne).sum()
-        predicted_rewardTwo = reward_model(segment_obs_actionTwo).sum()
+        pred_r1 = reward_model(segment_obs_actionOne).sum()
+        pred_r2 = reward_model(segment_obs_actionTwo).sum()
         labels = torch.tensor(
             [labelOne, labelTwo],
             dtype=torch.float32,
             device=device,
         )
 
-        prob_one = torch.exp(predicted_rewardOne) / (
-            torch.exp(predicted_rewardOne) + torch.exp(predicted_rewardTwo)
-        )
+        prob_one = torch.exp(pred_r1) / (torch.exp(pred_r1) + torch.exp(pred_r2))
 
         prob_two = 1 - prob_one
 
@@ -64,3 +62,49 @@ def train_reward_model(reward_model, reward_optimizer, labeled_data, device):
     optimizer.step()
 
     print("Reward Model updated")
+
+
+def train_reward_model_ensemble(reward_models, reward_optimizers, labeled_data, device):
+    """
+    Train a list (ensemble) of reward models.
+    Each model has a separate loss and optimizer.
+    """
+    model_losses = [0.0 for _ in range(len(reward_models))]
+
+    for opt in reward_optimizers:
+        opt.zero_grad()
+
+    for labeled_pair in labeled_data:
+        (
+            segment_obs_actionOne,
+            segment_obs_actionTwo,
+            (labelOne, labelTwo),
+            (predicted_rewardOne, predicted_rewardTwo),
+        ) = labeled_pair
+
+        segment_obs_actionOne = torch.tensor(segment_obs_actionOne, device=device)
+        segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo, device=device)
+
+        for i, model in enumerate(reward_models):
+            pred_r1 = model(segment_obs_actionOne).sum()
+            pred_r2 = model(segment_obs_actionTwo).sum()
+
+            prob_one = torch.exp(pred_r1) / (torch.exp(pred_r1) + torch.exp(pred_r2))
+            prob_two = 1 - prob_one
+
+            labels = torch.tensor(
+                [labelOne, labelTwo], dtype=torch.float32, device=device
+            )
+
+            pair_loss = -(
+                labels[0] * torch.log(prob_one + 1e-8)
+                + labels[1] * torch.log(prob_two + 1e-8)
+            )
+
+            model_losses[i] += pair_loss
+
+    for model_loss, opt in zip(model_losses, reward_optimizers):
+        model_loss.backward()
+        opt.step()
+
+    print("All Reward Models updated (separately).")

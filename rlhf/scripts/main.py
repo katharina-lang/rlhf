@@ -17,10 +17,6 @@ def start_rollout_loop(ppo, num_iterations):
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
-    # initial_segment_size = 5
-    # max_segment_size = 60
-    # half_iterations = args.num_iterations // 2
-    # increment = (max_segment_size - initial_segment_size) / half_iterations
 
     segment_size = 60
 
@@ -31,10 +27,6 @@ def start_rollout_loop(ppo, num_iterations):
             ppo.optimizer.param_groups[0]["lr"] = lrnow
 
         ppo.collect_rollout_data()
-
-        # segment_size = min(
-        #     [max_segment_size, int(initial_segment_size + iteration * increment)]
-        # )
 
         labeling = Labeling(segment_size)
         labeled_data = labeling.get_labeled_data(
