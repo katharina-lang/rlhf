@@ -4,9 +4,8 @@ import numpy as np
 import tyro
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
-from rlhf.core.reward_model import train_reward_model
+from rlhf.core.reward_model import train_reward_model, train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
-from rlhf.core.agent import Agent
 
 
 def start_rollout_loop(ppo, num_iterations):
@@ -38,12 +37,16 @@ def start_rollout_loop(ppo, num_iterations):
         # Process and train the reward model
         # Reward_model, reward_optimizer, labeled_data, device
         # Epochen müssen noch raus
-        train_reward_model(
-            reward_model=ppo.reward_model,
-            reward_optimizer=ppo.reward_optimizer,
-            labeled_data=labeled_data,
-            device=ppo.device,
+
+        train_reward_model_ensemble(
+            ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
         )
+        # train_reward_model(
+        #     reward_model=ppo.reward_model,
+        #     reward_optimizer=ppo.reward_optimizer,
+        #     labeled_data=labeled_data,
+        #     device=ppo.device,
+        # )
 
         ppo.advantage_calculation()
 

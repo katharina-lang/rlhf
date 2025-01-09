@@ -1,18 +1,12 @@
-import os
 import random
 import time
 
-import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
-from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
-from rlhf.utils.env import make_env
 from rlhf.core.reward_model import RewardModel
-from rlhf.core.labeling import Labeling
 from rlhf.core.ppo_setup import PPOSetup
 from scipy.stats import pearsonr
 
@@ -61,10 +55,20 @@ class PPO:
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
 
-        self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
-        self.reward_optimizer = optim.Adam(
-            self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
-        )
+        self.reward_models = [
+            RewardModel(input_dim=input_dim).to(self.device)
+            for _ in range(args.num_models)
+        ]
+
+        self.optimizers = [
+            optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+            for model in self.reward_models
+        ]
+
+        # self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
+        # self.reward_optimizer = optim.Adam(
+        #     self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
+        # )
 
         # Falls Testdaten vorhanden
         if test_data:
@@ -102,11 +106,14 @@ class PPO:
             state_action_pairs = np.hstack(
                 [self.next_obs.cpu().numpy(), action.cpu().numpy()]
             )
+            state_action_tensor = torch.tensor(state_action_pairs, device=self.device)
 
             with torch.no_grad():
-                self.predicted_reward = self.reward_model(
-                    torch.tensor(state_action_pairs)
-                )
+                predictions = []
+                for model in self.reward_models:
+                    pred = model(state_action_tensor)
+                    predictions.append(pred)
+                self.predicted_reward = torch.mean(torch.stack(predictions), dim=0)
 
             self.save_data(state_action_pairs)
 
