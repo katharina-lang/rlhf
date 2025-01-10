@@ -69,5 +69,5 @@ class Args:
     """the number of iterations (computed in runtime)"""
 
     # custom arguments
-    num_models: int = 8
+    num_models: int = 3
     """the number of reward models in the ensemble"""

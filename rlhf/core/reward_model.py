@@ -9,16 +9,34 @@ class RewardModel(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 32),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(32, 16),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(16, 1),
+            nn.Linear(hidden_dim, 1),
             nn.Tanh(),
         )
 
     def forward(self, x):
         return self.model(x)
+
+
+# class RewardModel(nn.Module):
+#     def __init__(self, input_dim, hidden_dim=64):
+#         super(RewardModel, self).__init__()
+#         self.model = nn.Sequential(
+#             nn.Linear(input_dim, hidden_dim),
+#             nn.ReLU(),
+#             nn.Linear(hidden_dim, 32),
+#             nn.ReLU(),
+#             nn.Linear(32, 16),
+#             nn.ReLU(),
+#             nn.Linear(16, 1),
+#             nn.Tanh(),
+#         )
+
+#     def forward(self, x):
+#         return self.model(x)
 
 
 def train_reward_model(reward_model, reward_optimizer, labeled_data, device):
