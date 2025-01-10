@@ -7,7 +7,6 @@ from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model, train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
 
-
 def start_rollout_loop(ppo, num_iterations):
     """
     Starts the main rollout loop for training the agent and the reward model.
@@ -26,28 +25,25 @@ def start_rollout_loop(ppo, num_iterations):
             ppo.optimizer.param_groups[0]["lr"] = lrnow
 
         ppo.collect_rollout_data()
+        
+        Labeling.counter = 0
 
-        labeling = Labeling(segment_size)
+        labeling = Labeling(segment_size=ppo.segment_size, test=False)
         labeled_data = labeling.get_labeled_data(
-            ppo.obs_action_pair_buffer,
-            ppo.env_reward_buffer,
-            ppo.predicted_rewards_buffer,
+            ppo.obs_action_pair_buffer, 
+            ppo.env_reward_buffer, 
+            ppo.predicted_rewards_buffer, 
+            ppo.args.env_id, 
+            iteration,  # Übergibt die Iteration
+            ppo.args.amount_preferences
         )
-
-        # Process and train the reward model
-        # Reward_model, reward_optimizer, labeled_data, device
-        # Epochen müssen noch raus
+        # Assign labeled data to the PPO agent
+        ppo.labeled_data = labeled_data
 
         train_reward_model_ensemble(
             ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
         )
-        # train_reward_model(
-        #     reward_model=ppo.reward_model,
-        #     reward_optimizer=ppo.reward_optimizer,
-        #     labeled_data=labeled_data,
-        #     device=ppo.device,
-        # )
-
+        
         ppo.advantage_calculation()
 
         ppo.agent.optimize_agent_and_critic(

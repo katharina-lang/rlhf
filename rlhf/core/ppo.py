@@ -5,6 +5,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import os
+from torch.utils.tensorboard import SummaryWriter
+from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
 from rlhf.core.reward_model import RewardModel
 from rlhf.core.ppo_setup import PPOSetup
@@ -279,3 +282,4 @@ class PPO:
         self.writer.add_scalar(
             "metrics/pearson_correlation", pearson_corr, self.global_step
         )
+

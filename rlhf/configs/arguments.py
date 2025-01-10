@@ -22,7 +22,7 @@ class Args:
     """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
-    env_id: str = "HalfCheetah-v5"
+    env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
     total_timesteps: int = 1000000
     """total timesteps of the experiments"""
@@ -67,7 +67,8 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-
+    amount_preferences: int = 2
+    """number of preferences per episode"""
     # custom arguments
     num_models: int = 3
     """the number of reward models in the ensemble"""
