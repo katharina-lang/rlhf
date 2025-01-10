@@ -67,3 +67,7 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
+
+    # custom arguments
+    num_models: int = 3
+    """the number of reward models in the ensemble"""

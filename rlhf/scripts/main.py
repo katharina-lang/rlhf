@@ -4,9 +4,8 @@ import numpy as np
 import tyro
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
-from rlhf.core.reward_model import train_reward_model
+from rlhf.core.reward_model import train_reward_model, train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
-from rlhf.core.agent import Agent
 
 
 def start_rollout_loop(ppo, num_iterations):
@@ -17,10 +16,6 @@ def start_rollout_loop(ppo, num_iterations):
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
-    # initial_segment_size = 5
-    # max_segment_size = 60
-    # half_iterations = args.num_iterations // 2
-    # increment = (max_segment_size - initial_segment_size) / half_iterations
 
     segment_size = 60
 
@@ -32,10 +27,6 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-        # segment_size = min(
-        #     [max_segment_size, int(initial_segment_size + iteration * increment)]
-        # )
-
         labeling = Labeling(segment_size)
         labeled_data = labeling.get_labeled_data(
             ppo.obs_action_pair_buffer,
@@ -46,12 +37,16 @@ def start_rollout_loop(ppo, num_iterations):
         # Process and train the reward model
         # Reward_model, reward_optimizer, labeled_data, device
         # Epochen müssen noch raus
-        train_reward_model(
-            reward_model=ppo.reward_model,
-            reward_optimizer=ppo.reward_optimizer,
-            labeled_data=labeled_data,
-            device=ppo.device,
+
+        train_reward_model_ensemble(
+            ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
         )
+        # train_reward_model(
+        #     reward_model=ppo.reward_model,
+        #     reward_optimizer=ppo.reward_optimizer,
+        #     labeled_data=labeled_data,
+        #     device=ppo.device,
+        # )
 
         ppo.advantage_calculation()
 
