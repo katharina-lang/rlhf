@@ -28,7 +28,7 @@ def start_rollout_loop(ppo, num_iterations):
         
         Labeling.counter = 0
 
-        labeling = Labeling(segment_size=ppo.segment_size, test=False)
+        labeling = Labeling(segment_size=args.segment_size, test=False)
         labeled_data = labeling.get_labeled_data(
             ppo.obs_action_pair_buffer, 
             ppo.env_reward_buffer, 

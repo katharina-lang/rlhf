@@ -59,14 +59,17 @@ def button_action():
     video_files = os.listdir(app.config['UPLOAD_FOLDER']) # hier gibt es ein Problem: in der Liste video_files (und deswegen auch in videos und video_paths) sind immer nur die ersten zwei Videos (segment 0 und 1), obwohl im Ordner schon die neuen sind, wie kann das sein?
     print('Video_files: ', video_files, flush=True)
     videos = [f for f in video_files if f.endswith('.mp4')]
-    print(videos, flush=True)
+    print("Videos in richtiger Reihenfolge?", videos, flush=True)
     global video_paths
     video_paths.clear()
 
     # sind schon zwei neue Videos in Ordner? Wenn nicht, darauf warten
     while (len(videos) <= 1):
-        time.sleep(2)
+        time.sleep(5)
+        videos = [f for f in video_files if f.endswith('.mp4')]
 
+    videos.sort(key=lambda x: int(x.split('_')[1]))
+    
     # aktuelle Videos
     video_paths.append(f"/uploads/{videos[0]}")
     video_paths.append(f"/uploads/{videos[1]}")
