@@ -2,12 +2,13 @@ docs/
 venv/
 venv_clean/
 runs/
+runs_diffR/
 models/
 videos/
-.flake8
 __pycache__/
 .DS_Store/
 venv2/
 segment_videos/
 runs/
 uploads/
+ant_runs/

@@ -1,8 +1,6 @@
-import os
 import random
 import time
 
-import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,9 +9,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 from rlhf.configs.arguments import Args
 from rlhf.core.agent import Agent
-from rlhf.utils.env import make_env
 from rlhf.core.reward_model import RewardModel
-from rlhf.core.labeling import Labeling
 from rlhf.core.ppo_setup import PPOSetup
 from scipy.stats import pearsonr
 
@@ -58,15 +54,24 @@ class PPO:
         self.next_done = torch.zeros(args.num_envs).to(self.device)
 
         # reward model setup
-        self.segment_size = self.args.segment_size
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
 
-        self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
-        self.reward_optimizer = optim.Adam(
-            self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
-        )
+        self.reward_models = [
+            RewardModel(input_dim=input_dim).to(self.device)
+            for _ in range(args.num_models)
+        ]
+
+        self.optimizers = [
+            optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+            for model in self.reward_models
+        ]
+
+        # self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
+        # self.reward_optimizer = optim.Adam(
+        #     self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
+        # )
 
         # Falls Testdaten vorhanden
         if test_data:
@@ -104,13 +109,15 @@ class PPO:
             state_action_pairs = np.hstack(
                 [self.next_obs.cpu().numpy(), action.cpu().numpy()]
             )
+            state_action_tensor = torch.tensor(state_action_pairs, device=self.device)
 
             with torch.no_grad():
-                self.predicted_reward = self.reward_model(
-                    torch.tensor(state_action_pairs)
-                )
+                predictions = []
+                for model in self.reward_models:
+                    pred = model(state_action_tensor)
+                    predictions.append(pred)
+                self.predicted_reward = torch.mean(torch.stack(predictions), dim=0)
 
-            # Warum sind die Pairs keine Pairs?
             self.save_data(state_action_pairs)
 
             # Data Storage (cleanrl)
@@ -122,6 +129,29 @@ class PPO:
                 self.device
             ), torch.Tensor(self.next_done).to(self.device)
 
+            # new gym api
+            if "episode" in infos:
+                eps = list(infos["episode"]["_t"])
+                done_envs = [
+                    i for i, finished in enumerate(eps) if finished is np.True_
+                ]
+                for i in done_envs:
+                    print(
+                        f"global_step={self.global_step}, episodic_return={infos['episode']['r'][i]}"
+                    )
+
+                    self.writer.add_scalar(
+                        "metrics/episodic_return",
+                        infos["episode"]["r"][i],
+                        self.global_step,
+                    )
+                    self.writer.add_scalar(
+                        "metrics/episodic_length",
+                        infos["episode"]["l"][i],
+                        self.global_step,
+                    )
+
+            # old gym api
             if "final_info" in infos:
                 for info in infos["final_info"]:
                     if info and "episode" in info:
@@ -129,12 +159,12 @@ class PPO:
                             f"global_step={self.global_step}, episodic_return={info['episode']['r']}"
                         )
                         self.writer.add_scalar(
-                            "charts/episodic_return",
+                            "metrics/episodic_return",
                             info["episode"]["r"],
                             self.global_step,
                         )
                         self.writer.add_scalar(
-                            "charts/episodic_length",
+                            "metrics/episodic_length",
                             info["episode"]["l"],
                             self.global_step,
                         )

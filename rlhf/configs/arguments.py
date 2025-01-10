@@ -69,3 +69,6 @@ class Args:
     """the number of iterations (computed in runtime)"""
     amount_preferences: int = 2
     """number of preferences per episode"""
+    # custom arguments
+    num_models: int = 3
+    """the number of reward models in the ensemble"""
