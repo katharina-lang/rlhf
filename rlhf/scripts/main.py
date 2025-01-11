@@ -4,7 +4,7 @@ import numpy as np
 import tyro
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
-from rlhf.core.reward_model import train_reward_model, train_reward_model_ensemble
+from rlhf.core.reward_model import train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
 
 
@@ -19,6 +19,13 @@ def start_rollout_loop(ppo, num_iterations):
 
     segment_size = 60
 
+    total_queries = ppo.args.num_queries
+    min_queries_per_training = 5
+    amount_of_trainings = total_queries // min_queries_per_training
+    div = num_iterations // amount_of_trainings
+
+    queries_trained = 0
+
     for iteration in range(1, num_iterations + 1):
         if ppo.args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / num_iterations
@@ -27,26 +34,24 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-        labeling = Labeling(segment_size)
-        labeled_data = labeling.get_labeled_data(
-            ppo.obs_action_pair_buffer,
-            ppo.env_reward_buffer,
-            ppo.predicted_rewards_buffer,
-        )
+        if iteration % div == 0:
+            queries = min(min_queries_per_training, total_queries)
 
-        # Process and train the reward model
-        # Reward_model, reward_optimizer, labeled_data, device
-        # Epochen müssen noch raus
+            if queries > 0:
+                total_queries -= min_queries_per_training
+                queries_trained += queries
 
-        train_reward_model_ensemble(
-            ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
-        )
-        # train_reward_model(
-        #     reward_model=ppo.reward_model,
-        #     reward_optimizer=ppo.reward_optimizer,
-        #     labeled_data=labeled_data,
-        #     device=ppo.device,
-        # )
+                labeling = Labeling(segment_size)
+                labeled_data = labeling.get_labeled_data(
+                    ppo.obs_action_pair_buffer,
+                    ppo.env_reward_buffer,
+                    ppo.predicted_rewards_buffer,
+                    queries,
+                )
+
+                train_reward_model_ensemble(
+                    ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
+                )
 
         ppo.advantage_calculation()
 
@@ -68,13 +73,15 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.record_rewards_for_plotting_purposes(explained_var)
 
+    print(queries_trained)
+
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    ppo = PPO(run_name, args, test_data=False)
+    ppo = PPO(run_name, args)
     # Start the rollout loop
     start_rollout_loop(ppo, args.num_iterations)
 

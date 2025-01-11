@@ -30,7 +30,11 @@ class Labeling:
         )
 
     def select_segments(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+        self,
+        obs_action_pair_buffer,
+        env_reward_buffer,
+        predicted_rewards_buffer,
+        queries,
     ):
         """
         Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
@@ -40,7 +44,8 @@ class Labeling:
         predicted_rewards_buffer = np.array(predicted_rewards_buffer)
 
         data_points = len(env_reward_buffer)
-        segment_amount = data_points // self.segment_size
+        # achtung das muss noch geupdated werden, für varianz
+        segment_amount = queries * 2
 
         segments = []
         for _ in range(segment_amount):
@@ -55,14 +60,18 @@ class Labeling:
         return segments
 
     def get_labeled_data(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+        self,
+        obs_action_pair_buffer,
+        env_reward_buffer,
+        predicted_rewards_buffer,
+        queries,
     ):
         """
         Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
         """
         labeled_data = []
         segments = self.select_segments(
-            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
+            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, queries
         )
 
         while len(segments) > 1:
