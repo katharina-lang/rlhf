@@ -2,6 +2,8 @@ import time
 import torch
 import numpy as np
 import tyro
+import os
+import shutil
 import threading
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
@@ -97,11 +99,33 @@ def calculate_preferences(iteration, total_iterations, total_preferences):
     # Mindestanzahl an Präferenzen sichern (z.B. 1 Präferenz pro Iteration)
     return max(preferences_for_iteration, 1)
 
+def clear_uploads_folder(folder_path):
+    """Bereinigt den Ordner `uploads`, indem alle Dateien und Unterordner gelöscht werden."""
+    if os.path.exists(folder_path):
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)  # Datei oder Symlink löschen
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)  # Unterordner löschen
+            except Exception as e:
+                print(f"Fehler beim Löschen von {file_path}: {e}")
+    else:
+        # Falls der Ordner nicht existiert, erstelle ihn
+        os.makedirs(folder_path)
+        print(f"Ordner {folder_path} wurde erstellt.")
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    uploads_folder = os.path.join(BASE_DIR, 'uploads')
+
+    # Ordner bereinigen vor dem Start von Flask
+    clear_uploads_folder(uploads_folder)
 
     ppo = PPO(run_name, args, test_data=False)
     # Start the rollout loop

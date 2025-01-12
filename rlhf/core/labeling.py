@@ -70,8 +70,6 @@ class Labeling:
                         response2 = requests.get(f"{base_url}/set")
                         state2 = response2.json()
                         button_set = state2['set']
-                        print(button_status)
-                        print(button_set)
                         # falls Button gedrückt wurde, weitergehen, sonst darauf warten
                         if button_set:
                             break
@@ -92,7 +90,6 @@ class Labeling:
                         # hier wird jetzt an Flask das Signal gesendet, den Button-Set wieder auf False zu setzen
                         response = requests.post(f"{base_url}/set", json={"new_value": button_set})
 
-                        print('label gesetzt', button_status)
 
                         # fertig verarbeitete Videos aus Ordner löschen
                         # dafür Pfade der beiden Videos aus dem uploads-Ordner speichern und dann endgültig

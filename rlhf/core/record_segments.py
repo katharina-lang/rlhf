@@ -1,6 +1,7 @@
 import gymnasium as gym
 import os
 import glob
+import time
 
 def record_video_for_segment(env_id, segment, video_folder, segment_id, iteration):
     """
@@ -16,7 +17,6 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
     env = gym.wrappers.RecordVideo(
         gym.make(env_id, render_mode='rgb_array'),
         video_folder=video_folder,
-        episode_trigger=lambda episode_id: True,
         name_prefix=f"segment_{segment_id}_iteration_{iteration}"  # Eindeutiger Name für das Video
     )
 
@@ -38,11 +38,17 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
     
     env.close() 
     
+    """
     # Umbenennen des Videos, um `episode_0` zu entfernen
     video_files = glob.glob(os.path.join(video_folder, f"segment_{segment_id}_iteration_{iteration}-episode-0.mp4"))
     for video_file in video_files:
         new_name = os.path.join(video_folder, f"segment_{segment_id}_iteration_{iteration}.mp4")
         os.rename(video_file, new_name)
+        # Warte, bis die Datei sicher existiert
+        while not os.path.exists(new_name):
+            time.sleep(0.1)
+    """
+    
 
     
     
