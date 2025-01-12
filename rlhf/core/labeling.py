@@ -12,21 +12,23 @@ class Labeling:
 
     counter = 0
 
-    def __init__(self, segment_size=60, test=False):
+    def __init__(self, segment_size=60, test=False, flask_port=None):
         self.segment_size = segment_size
         self.test = test
+        self.flask_port = flask_port
 
     def preference_elicitation(self, segment_one, segment_two, env_id, iteration):
         """
         Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
         """
 
+        print("Labeling: Flask Port ist: ", self.flask_port)
         # Verzeichnisse flexibel erstellen
         # Basispfad wird dynamisch über abspath bestimmt, Ordner werden mit makedirs erstellt, falls sie nicht existieren
         # Dateien und Pfade werden mit path.join zusammengesetzt
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         upload_dir = os.path.join(base_dir, 'uploads')
-
+        base_url = f"http://127.0.0.1:{self.flask_port}"
 
         # Verzeichnisse erstellen, falls sie nicht existieren
         os.makedirs(upload_dir, exist_ok=True)
@@ -61,23 +63,23 @@ class Labeling:
                         # Button-Drücke bekommen
                         # requests.get sendet eine HTTP-GET-Anfrage an den lokalen Flask-Server
                         # Antwort: Der Server antwortet mit einem JSON-Objekt, das den akt. Status enthält, z.B. {"status":[0,1]}
-                        response = requests.get('http://127.0.0.1:5000/status')
+                        response = requests.get(f"{base_url}/status")
                         state = response.json()
                         button_status = state['status']
                         # wieder HTTP-GET-Anfrage, diesmal zur Abfrage, ob ein Button gedrückt wurde (Antwort z.B. {"set": true})
-                        response2 = requests.get('http://127.0.0.1:5000/set')
+                        response2 = requests.get(f"{base_url}/set")
                         state2 = response2.json()
                         button_set = state2['set']
                         print(button_status)
                         print(button_set)
                         # falls Button gedrückt wurde, weitergehen, sonst darauf warten
-                        if (button_set == True):
+                        if button_set:
                             break
                         # Server wird nur alle 2 Sekunden abgefragt, um Überlastungen zu vermeiden
                         # Dafür ist die Reaktionszeit nicht gut --> könnte man vielleicht auf 0.5 setzen
                         time.sleep(2)
 
-                    if (button_set == True):
+                    if button_set:
                         # labeln
                         segment_obs_actionOne, _, predicted_rewardOne = segment_one
                         segment_obs_actionTwo, _, predicted_rewardTwo = segment_two
@@ -88,7 +90,7 @@ class Labeling:
                         # erstmal nur lokal
                         button_set = False
                         # hier wird jetzt an Flask das Signal gesendet, den Button-Set wieder auf False zu setzen
-                        response = requests.post('http://127.0.0.1:5000/set', json={"new_value": button_set})
+                        response = requests.post(f"{base_url}/set", json={"new_value": button_set})
 
                         print('label gesetzt', button_status)
 
