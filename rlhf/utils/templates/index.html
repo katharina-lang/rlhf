@@ -117,18 +117,23 @@
             grid-template-columns: max-content max-content max-content;
             gap: 5%;
             padding: 2%;
-            bottom: 5%
         }
 
         .button {
-            text-align: center;
-            padding: 15% 20%;
-            padding-right: 120%;
-            font-size: 100%;
+            display: flex; /* Flexbox hinzufügen */
+            align-items: center; /* Text vertikal zentrieren */
+            justify-content: center; /* Text horizontal zentrieren */
+            width: 100px; /* Einheitliche Breite */
+            height: 50px; /* Einheitliche Höhe */
+            font-size: 16px; /* Konsistente Schriftgröße */
             cursor: pointer;
-            width: 100%;
             border: 2px solid black;
-            transform: translateY(-50%);
+            box-sizing: border-box; /* Padding zählt nicht zur Gesamtgröße */
+        }
+
+        #status-container {
+            margin-top: 10px; /* Abstand über dem Status */
+            text-align: center; /* Text zentrieren */
         }
 
         #button-top {
@@ -208,7 +213,8 @@
         <button id="button-bottom" class="button" onclick="sendAction('none')">none</button> 
     </div>
 
-    <!-- Statusanzeige (Optional) -->
-    <p id="status"style="transform: translate(-200px,-80px);">Status: (-1, -1)</p>
+    <div id="status-container">
+    <p id="status">Status: (-1, -1)</p>
+    </div>
 </body>
 </html>

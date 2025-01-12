@@ -48,7 +48,7 @@ def monitor_app():
         if preferences_labeled >= Args.amount_preferences:
             print("\nErfolgreich alle Videos gelabelt! Der Status wurde aktualisiert.", flush=True)
             # Wartezeit, damit das Frontend die Erfolgsmeldung anzeigen kann
-            time.sleep(5)
+            time.sleep(1)
             
             # Beende den Server
             os.kill(os.getpid(), signal.SIGINT)
