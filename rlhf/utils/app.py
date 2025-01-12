@@ -1,6 +1,15 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import time
+import threading
+import signal
+import sys
+import socket
+from rlhf.configs.arguments import Args
+
+app_should_stop = False
+flask_port = None
+preferences_labeled = 0
 
 app = Flask(__name__)
 
@@ -21,6 +30,32 @@ video_paths = [] # aktuelle Videos
 
 print(f"Video-Dateien in uploads: {os.listdir(app.config['UPLOAD_FOLDER'])}", flush=True)
 
+@app.route('/stop', methods=['POST'])
+def stop_app():
+    """Beendet die Flask-App."""
+    global app_should_stop
+    app_should_stop = True
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Server kann nicht gestoppt werden.')
+    func()
+    return jsonify({"message": "App wird beendet."})
+
+# Überwachung in einem separaten Thread
+def monitor_app():
+    global app_should_stop, preferences_labeled
+    while not app_should_stop:
+        if preferences_labeled >= Args.amount_preferences:
+            print("\nErfolgreich alle Videos gelabelt! Der Status wurde aktualisiert.", flush=True)
+            # Wartezeit, damit das Frontend die Erfolgsmeldung anzeigen kann
+            time.sleep(5)
+            
+            # Beende den Server
+            os.kill(os.getpid(), signal.SIGINT)
+            break  # Beende die Schleife, sobald das Labeln abgeschlossen ist
+        time.sleep(1)
+
+
 @app.route('/')
 def index():
     print("index")
@@ -32,6 +67,7 @@ def button_action():
     print("button_action", flush=True)
     global button_status
     global button_set
+    global preferences_labeled
     action = request.json.get('action')
     # Label erstellen
     if action == 'left':
@@ -47,12 +83,12 @@ def button_action():
     elif action == 'none':
         button_status = (0,0)
         button_set = True
-    elif action == 'start': # Knopf, damit die ersten zwei Videos geladen werden, da dafür noch kein Labeling-Button gedrückt wird (kann man bestimmt noch eleganter machen: erste Videos automatisch geladen oder start-Button verschwindet nach anfänglichem Drücken)
-        button_status = button_status
-        button_set = button_set
     else:
         return jsonify({'error': 'Ungültige Aktion'}), 400
-
+    if action in ['left', 'right', 'equal', 'none']:
+        preferences_labeled += 1  # Präferenz wurde erfolgreich gelabelt
+        button_set = True
+        print(f"Gelabelte Präferenzen: {preferences_labeled}/{Args.amount_preferences}", flush=True)
     print("Aktueller Button-Set: ", button_set, flush=True)
 
     # neue Videos laden
@@ -69,7 +105,7 @@ def button_action():
         videos = [f for f in video_files if f.endswith('.mp4')]
 
     videos.sort(key=lambda x: int(x.split('_')[1]))
-    
+
     # aktuelle Videos
     video_paths.append(f"/uploads/{videos[0]}")
     video_paths.append(f"/uploads/{videos[1]}")
@@ -136,10 +172,37 @@ def uploaded_file(filename):
     response.cache_control.must_revalidate = True
     return response
 
-# Flask Thread starten
-def start_flask():
-    """Startet die Flask-App."""
-    app.run(debug=True, use_reloader=False)
+@app.route('/is-labeling-complete', methods=['GET'])
+def is_labeling_complete():
+    """Prüft, ob das Labeln abgeschlossen ist."""
+    global preferences_labeled
+    if preferences_labeled >= Args.amount_preferences:
+        return jsonify({'complete': True})
+    return jsonify({'complete': False})
 
-if __name__ == '__main__':
-    start_flask()
+def find_free_port():
+    """Findet einen freien Port auf dem System."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
+
+def start_flask():
+    """Startet die Flask-App auf einem dynamischen Port und speichert den Port global."""
+    global flask_port
+    if flask_port is None:  # Nur, wenn der Port noch nicht gesetzt wurde
+        flask_port = find_free_port()  # Dynamischen Port ermitteln
+        print(f"Starte den Server auf Port {flask_port}...")
+        flask_thread = threading.Thread(
+            target=app.run, 
+            kwargs={'host': '127.0.0.1', 'port': flask_port, 'debug': True, 'use_reloader': False}, 
+            daemon=True
+        )
+        flask_thread.start()
+        monitor_thread = threading.Thread(target=monitor_app, daemon=True)
+        monitor_thread.start()
+
+        time.sleep(1)  # Warten, bis Flask vollständig gestartet ist
+    else:
+        print(f"Flask läuft bereits auf Port {flask_port}.")
+    return flask_port

@@ -2,10 +2,12 @@ import time
 import torch
 import numpy as np
 import tyro
+import threading
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model, train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
+from rlhf.utils.app import start_flask, flask_port, monitor_app
 
 def start_rollout_loop(ppo, num_iterations):
     """
@@ -15,6 +17,13 @@ def start_rollout_loop(ppo, num_iterations):
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
+
+    global flask_port
+    if flask_port is None:  # Falls Flask noch nicht gestartet ist
+        flask_port = start_flask()
+        monitor_thread = threading.Thread(target=monitor_app, daemon=True)
+        monitor_thread.start()
+
 
     segment_size = 60
 
@@ -28,14 +37,18 @@ def start_rollout_loop(ppo, num_iterations):
         
         Labeling.counter = 0
 
-        labeling = Labeling(segment_size=args.segment_size, test=False)
+        preferences_for_iteration = calculate_preferences(
+            iteration, num_iterations, ppo.args.amount_preferences
+        )
+        print("Main.py - Flask Port: ", flask_port)
+        labeling = Labeling(segment_size=args.segment_size, test=False, flask_port=flask_port)
         labeled_data = labeling.get_labeled_data(
             ppo.obs_action_pair_buffer, 
             ppo.env_reward_buffer, 
             ppo.predicted_rewards_buffer, 
             ppo.args.env_id, 
             iteration,  # Übergibt die Iteration
-            ppo.args.amount_preferences
+            preferences_for_iteration
         )
         # Assign labeled data to the PPO agent
         ppo.labeled_data = labeled_data
@@ -63,6 +76,27 @@ def start_rollout_loop(ppo, num_iterations):
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         ppo.record_rewards_for_plotting_purposes(explained_var)
+
+def calculate_preferences(iteration, total_iterations, total_preferences):
+    """
+    Berechnet die Anzahl der Präferenzen, die in der aktuellen Iteration abgefragt werden sollen.
+    Die Verteilung erfolgt nichtlinear, z.B. durch exponentielle Abnahme.
+    
+    Args:
+        iteration (int): Aktuelle Iteration.
+        total_iterations (int): Gesamte Anzahl an Iterationen.
+        total_preferences (int): Gesamte Anzahl an Präferenzen.
+
+    Returns:
+        int: Anzahl der Präferenzen für diese Iteration.
+    """
+    # Parameter für die exponentielle Abnahme
+    alpha = 3  # Steuerung der Abnahmegeschwindigkeit
+    weight = np.exp(-alpha * (iteration / total_iterations))
+    preferences_for_iteration = int(total_preferences * weight)
+
+    # Mindestanzahl an Präferenzen sichern (z.B. 1 Präferenz pro Iteration)
+    return max(preferences_for_iteration, 1)
 
 
 if __name__ == "__main__":
