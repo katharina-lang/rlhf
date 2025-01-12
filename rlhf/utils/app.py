@@ -47,9 +47,6 @@ def button_action():
     elif action == 'none':
         button_status = (0,0)
         button_set = True
-    elif action == 'start': # Knopf, damit die ersten zwei Videos geladen werden, da dafür noch kein Labeling-Button gedrückt wird (kann man bestimmt noch eleganter machen: erste Videos automatisch geladen oder start-Button verschwindet nach anfänglichem Drücken)
-        button_status = button_status
-        button_set = button_set
     else:
         return jsonify({'error': 'Ungültige Aktion'}), 400
 

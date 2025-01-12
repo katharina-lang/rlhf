@@ -176,6 +176,6 @@ class Labeling:
 
         # Flask ganz beenden. Ist die Frage, ob wir das nach jeder Episode wollen oder ob Flask lieber die ganze
         # Zeit laufen soll --> hängt wahrscheinlich auch davon ab, wie wir das mit der Anzahl der Abfragen machen
-        # requests.post('http://127.0.0.1:5000/shutdown', json={})
+        requests.post('http://127.0.0.1:5000/shutdown', json={})
 
         return labeled_data
