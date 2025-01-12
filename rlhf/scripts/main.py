@@ -36,7 +36,6 @@ def start_rollout_loop(ppo, num_iterations):
         ppo.collect_rollout_data()
         
         Labeling.counter = 0
-
         preferences_for_iteration = calculate_preferences(
             iteration, num_iterations, ppo.args.amount_preferences
         )
