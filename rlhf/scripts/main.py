@@ -19,14 +19,6 @@ def start_rollout_loop(ppo, num_iterations):
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
-
-    global flask_port
-    if flask_port is None:  # Falls Flask noch nicht gestartet ist
-        flask_port = start_flask()
-        monitor_thread = threading.Thread(target=monitor_app, daemon=True)
-        monitor_thread.start()
-
-
     segment_size = 60
 
     for iteration in range(1, num_iterations + 1):
@@ -41,7 +33,9 @@ def start_rollout_loop(ppo, num_iterations):
         preferences_for_iteration = calculate_preferences(
             iteration, num_iterations, ppo.args.amount_preferences
         )
-        print("Main.py - Flask Port: ", flask_port)
+        global flask_port
+        if flask_port is None:  # Falls Flask noch nicht gestartet ist
+            flask_port = start_flask()
         labeling = Labeling(segment_size=args.segment_size, test=False, flask_port=flask_port)
         labeled_data = labeling.get_labeled_data(
             ppo.obs_action_pair_buffer, 

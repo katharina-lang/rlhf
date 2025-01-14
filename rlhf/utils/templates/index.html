@@ -117,18 +117,17 @@
             grid-template-columns: max-content max-content max-content;
             gap: 5%;
             padding: 2%;
+            bottom: 5%;
         }
 
         .button {
-            display: flex; /* Flexbox hinzufügen */
-            align-items: center; /* Text vertikal zentrieren */
-            justify-content: center; /* Text horizontal zentrieren */
-            width: 100px; /* Einheitliche Breite */
-            height: 50px; /* Einheitliche Höhe */
-            font-size: 16px; /* Konsistente Schriftgröße */
+            text-align: center;
+            padding: 1%;
+            font-size: 100%;
             cursor: pointer;
+            width: 100%;
             border: 2px solid black;
-            box-sizing: border-box; /* Padding zählt nicht zur Gesamtgröße */
+            transform: translateY(-50%);
         }
 
         #status-container {

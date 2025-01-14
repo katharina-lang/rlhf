@@ -153,14 +153,6 @@ class Labeling:
             obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, amount_preferences
         )
 
-        # Flask als Thread starten
-        # Funktion start_flask() wird als Ziel angegeben --> nach dem Starten des Threads wird diese Funktion ausgeführt
-        flask_thread = Thread(target=start_flask, daemon = True)
-        flask_thread.start()
-        # Frage: Welche Funktion führt Flask eigentlich aus??
-        # Flask verwendet eine Schleife, die kontinuierlich auf HTTP-Anfragen wartet
-        # Wird Flask automatisch wieder beendet?
-
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()
@@ -169,12 +161,5 @@ class Labeling:
             )
             # Ich hätte gedacht, man muss hier auf Flask warten
             labeled_data.append(segments_label_reward)
-        
-        # warum wartet man hier auf Flask?
-        # flask_thread.join --> kann glaube ich weg
-
-        # Flask ganz beenden. Ist die Frage, ob wir das nach jeder Episode wollen oder ob Flask lieber die ganze
-        # Zeit laufen soll --> hängt wahrscheinlich auch davon ab, wie wir das mit der Anzahl der Abfragen machen
-        requests.post('http://127.0.0.1:5000/shutdown', json={})
 
         return labeled_data
