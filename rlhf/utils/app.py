@@ -104,9 +104,10 @@ def button_action():
 @app.route('/get-videos', methods=['GET'])
 def get_videos():
     global video_paths
-    # Wenn `video_paths` leer ist, lade Videos aus dem Upload-Ordner
+    print("Video Paths:", video_paths)
     if not video_paths:
         video_files = os.listdir(app.config['UPLOAD_FOLDER'])
+        print("Video Files in Uploads:", video_files)
         videos = [f"/uploads/{f}" for f in video_files if f.endswith('.mp4')]
         video_paths.extend(videos)    
     return jsonify({'videos': video_paths})

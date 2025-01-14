@@ -19,6 +19,10 @@
 
                 const data = await response.json();
 
+                if (!data.videos || data.videos.length < 2) {
+                    throw new Error('Nicht genügend Videos verfügbar.');
+                }
+
                 // Video-Container leeren und neue Videos hinzufügen
                 const videoContainer = document.getElementById('video-container');
                 videoContainer.innerHTML = '';
