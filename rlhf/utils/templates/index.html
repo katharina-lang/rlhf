@@ -25,7 +25,6 @@
                         videoElement.autoplay = true;
                         videoElement.loop = true;
                         videoElement.muted = true;
-                        //videoElement.width = 400; //ändern, damit flexibel -> prozent? wie? oder max-width -> keine videos verfügbar
 
                         const sourceElement = document.createElement('source');
                         sourceElement.src = video;
@@ -117,23 +116,19 @@
             grid-template-columns: max-content max-content max-content;
             gap: 5%;
             padding: 2%;
+            bottom: 5%;
         }
 
         .button {
-            display: flex; /* Flexbox hinzufügen */
-            align-items: center; /* Text vertikal zentrieren */
-            justify-content: center; /* Text horizontal zentrieren */
-            width: 100px; /* Einheitliche Breite */
-            height: 50px; /* Einheitliche Höhe */
-            font-size: 16px; /* Konsistente Schriftgröße */
+            flex: 1; /* Alle Buttons gleich groß */
+            max-width: 20%;
+            min-width: 100px;
+            text-align: center;
+            font-size: 100%;
             cursor: pointer;
+            width: 100%;
             border: 2px solid black;
-            box-sizing: border-box; /* Padding zählt nicht zur Gesamtgröße */
-        }
-
-        #status-container {
-            margin-top: 10px; /* Abstand über dem Status */
-            text-align: center; /* Text zentrieren */
+            transform: translateY(-50%);
         }
 
         #button-top {
@@ -174,8 +169,6 @@
 
             .button {
                 font-size: 0.8rem; /* Kleinere Buttons */
-                padding: 10% 10%;
-                padding-right: 100%;
             }
         }
 
@@ -191,8 +184,6 @@
 
             .button {
                 font-size: 0.8rem; /* Kleinere Buttons */
-                padding: 10% 10%;
-                padding-right: 100%;
             }
         }
 
@@ -214,7 +205,7 @@
     </div>
 
     <div id="status-container">
-    <p id="status">Status: (-1, -1)</p>
+    <p id="status"style="transform: translate(-300px,-50px);">Status: (-1, -1)</p>
     </div>
 </body>
 </html>
