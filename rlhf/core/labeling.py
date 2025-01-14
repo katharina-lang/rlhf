@@ -152,7 +152,6 @@ class Labeling:
         segments = self.select_segments(
             obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, amount_preferences
         )
-
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()

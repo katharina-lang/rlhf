@@ -33,6 +33,7 @@ def start_rollout_loop(ppo, num_iterations):
         preferences_for_iteration = calculate_preferences(
             iteration, num_iterations, ppo.args.amount_preferences
         )
+        
         global flask_port
         if flask_port is None:  # Falls Flask noch nicht gestartet ist
             flask_port = start_flask()

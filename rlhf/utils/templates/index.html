@@ -25,7 +25,6 @@
                         videoElement.autoplay = true;
                         videoElement.loop = true;
                         videoElement.muted = true;
-                        //videoElement.width = 400; //ändern, damit flexibel -> prozent? wie? oder max-width -> keine videos verfügbar
 
                         const sourceElement = document.createElement('source');
                         sourceElement.src = video;
@@ -121,18 +120,15 @@
         }
 
         .button {
+            flex: 1; /* Alle Buttons gleich groß */
+            max-width: 20%;
+            min-width: 100px;
             text-align: center;
-            padding: 1%;
             font-size: 100%;
             cursor: pointer;
             width: 100%;
             border: 2px solid black;
             transform: translateY(-50%);
-        }
-
-        #status-container {
-            margin-top: 10px; /* Abstand über dem Status */
-            text-align: center; /* Text zentrieren */
         }
 
         #button-top {
@@ -173,8 +169,6 @@
 
             .button {
                 font-size: 0.8rem; /* Kleinere Buttons */
-                padding: 10% 10%;
-                padding-right: 100%;
             }
         }
 
@@ -190,8 +184,6 @@
 
             .button {
                 font-size: 0.8rem; /* Kleinere Buttons */
-                padding: 10% 10%;
-                padding-right: 100%;
             }
         }
 
@@ -213,7 +205,7 @@
     </div>
 
     <div id="status-container">
-    <p id="status">Status: (-1, -1)</p>
+    <p id="status"style="transform: translate(-300px,-50px);">Status: (-1, -1)</p>
     </div>
 </body>
 </html>
