@@ -90,7 +90,7 @@ def button_action():
 
     # sind schon zwei neue Videos in Ordner? Wenn nicht, darauf warten
     while (len(videos) <= 1):
-        time.sleep(5)
+        time.sleep(1)
         videos = [f for f in video_files if f.endswith('.mp4')]
 
     videos.sort(key=lambda x: int(x.split('_')[1]))

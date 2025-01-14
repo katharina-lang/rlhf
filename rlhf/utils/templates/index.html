@@ -7,80 +7,117 @@
     <script>
         // hier werden die Videos geladen. Ist es ein Problem, dass die Fuktion async ist? Werden sie deshalb nicht neu geladen?
         async function loadVideos() {
-                try {
-                    const response = await fetch('/get-videos');
-                    if (!response.ok) {
-                        throw new Error('Keine Videos gefunden');
-                    }
-                    const data = await response.json();
+            try {
+                // Zeige den Loading-Indikator an
+                document.getElementById('loading-indicator').style.display = 'block';
+                document.getElementById('video-container').style.display = 'none';
 
-                    // Video-Container leeren
-                    const videoContainer = document.getElementById('video-container');
-                    videoContainer.innerHTML = '';
-
-                    // Videos hinzufügen
-                    data.videos.forEach(video => {
-                        const videoElement = document.createElement('video');
-                        videoElement.controls = true;
-                        videoElement.autoplay = true;
-                        videoElement.loop = true;
-                        videoElement.muted = true;
-
-                        const sourceElement = document.createElement('source');
-                        sourceElement.src = video;
-                        sourceElement.type = 'video/mp4';
-
-                        videoElement.appendChild(sourceElement);
-                        videoContainer.appendChild(videoElement);
-                    });
-                } catch (error) {
-                    console.error('Fehler beim Laden der Videos:', error);
-                    document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
+                const response = await fetch('/get-videos');
+                if (!response.ok) {
+                    throw new Error('Fehler beim Abrufen der Videos.');
                 }
+
+                const data = await response.json();
+
+                // Video-Container leeren und neue Videos hinzufügen
+                const videoContainer = document.getElementById('video-container');
+                videoContainer.innerHTML = '';
+
+                data.videos.forEach(video => {
+                    const videoElement = document.createElement('video');
+                    videoElement.controls = true;
+                    videoElement.autoplay = true;
+                    videoElement.loop = true;
+                    videoElement.muted = true;
+
+                    const sourceElement = document.createElement('source');
+                    sourceElement.src = video;
+                    sourceElement.type = 'video/mp4';
+
+                    videoElement.appendChild(sourceElement);
+                    videoContainer.appendChild(videoElement);
+                });
+
+                // Lade-Indikator ausblenden und Videos anzeigen
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('video-container').style.display = 'flex';
+            } catch (error) {
+                console.error('Fehler beim Laden der Videos:', error);
+                document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
             }
+        }
 
-            async function checkLabelingCompletion() {
-                try {
-                    const response = await fetch('/is-labeling-complete');
-                    if (!response.ok) {
-                        throw new Error('Fehler beim Abfragen des Status.');
-                    }
 
-                    const data = await response.json();
-                    if (data.complete) {
-                        // Pop-Up anzeigen
-                        alert("Das Labeln aller Videos ist abgeschlossen! Sie können das Fenster schließen.");
-                        
-                        // Statusanzeige aktualisieren
-                        document.getElementById('status').innerText = "Fertig! Das Fenster kann geschlossen werden.";
-                        
-                        // Stoppe die weitere Überprüfung
-                        clearInterval(labelCheckInterval);
-                    }
-                } catch (error) {
-                    console.error('Fehler beim Überprüfen des Status:', error);
+
+        async function checkLabelingCompletion() {
+            try {
+                const response = await fetch('/is-labeling-complete');
+                if (!response.ok) {
+                    throw new Error('Fehler beim Abfragen des Status.');
                 }
-            }
 
-            // Initialisiere regelmäßige Überprüfung
-            const labelCheckInterval = setInterval(checkLabelingCompletion, 500);
+                const data = await response.json();
+                if (data.complete) {
+                    // Pop-Up anzeigen
+                    alert("Das Labeln aller Videos ist abgeschlossen! Sie können das Fenster schließen.");
+                    
+                    // Statusanzeige aktualisieren
+                    document.getElementById('status').innerText = "";
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    document.getElementById('video-container').style.display = 'none';
+                    document.getElementById('finished').style.display = 'block'
+                    const buttons = document.querySelectorAll('.button');
+                    buttons.forEach(button => button.disabled = true);
+                    // Stoppe die weitere Überprüfung
+                    clearInterval(labelCheckInterval);
+                }
+            } catch (error) {
+                console.error('Fehler beim Überprüfen des Status:', error);
+            }
+        }
+
+        // Initialisiere regelmäßige Überprüfung
+        const labelCheckInterval = setInterval(checkLabelingCompletion, 500);
 
         // Button-Druck
         async function sendAction(action) {
-            const response = await fetch('/button_action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: action })
-            });
-            if (response.ok) {
-                loadVideos(); // Lade Videos neu, nach Button-Druck, funktioniert das? Vielleicht muss man länger warten, weil neues Video noch nicht fertig?
-            }
-            const data = await response.json();
-            if (data.status) {
-                document.getElementById('status').innerText = `Status: ${data.status}`;
+            // Buttons deaktivieren
+            const buttons = document.querySelectorAll('.button');
+            buttons.forEach(button => button.disabled = true);
+
+            // Wartesymbol anzeigen
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('video-container').style.display = 'none';
+
+            try {
+                // Serveranfrage senden
+                const response = await fetch('/button_action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: action })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status) {
+                        document.getElementById('status').innerText = `Status: ${data.status}`;
+                    }
+                    // Lade Videos neu
+                    await loadVideos();
+                }
+            } catch (error) {
+                console.error('Fehler bei der Serveranfrage:', error);
+            } finally {
+                // Wartesymbol ausblenden und Buttons aktivieren
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('video-container').style.display = 'flex';
+                buttons.forEach(button => button.disabled = false);
             }
         }
-        loadVideos();
+        window.onload = () => {
+            loadVideos();
+        };
+
     </script>
     <!-- Position der Buttons festlegen -->
      <style>
@@ -197,6 +234,12 @@
 <body>
     <!--Videos, nicht statisch festgelegt welche geladen-->
     <h1>Which segment do you prefer?</h1>
+    <div id="loading-indicator" style="display: none;">
+        <p>Loading...</p>
+    </div> 
+    <div id="finished" style="display: none;">
+        <p>Labeling finished. You can close the window now.</p>
+    </div>    
     <div id="video-container">
         <p>Keine Videos geladen.</p>
     </div>
