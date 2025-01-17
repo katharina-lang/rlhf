@@ -12,7 +12,7 @@ from scipy.stats import pearsonr
 
 
 class PPO:
-    def __init__(self, run_name, args, test_data=None):
+    def __init__(self, run_name, args, test_data=False):
         self.args = args
         # Rollouts Data
         args.batch_size = int(self.args.num_envs * self.args.num_steps)
