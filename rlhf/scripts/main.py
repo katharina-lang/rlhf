@@ -26,6 +26,8 @@ def start_rollout_loop(ppo, num_iterations):
 
     queries_trained = 0
 
+    updates = num_iterations
+
     for iteration in range(1, num_iterations + 1):
         if ppo.args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / num_iterations
