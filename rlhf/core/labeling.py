@@ -1,115 +1,26 @@
 import numpy as np
-import torch
-import os
-import shutil
-import requests
-import time
-from threading import Thread
-from rlhf.utils.app import start_flask
-from rlhf.core.record_segments import record_video_for_segment
+
 
 class Labeling:
-
-    counter = 0
-
     def __init__(self, segment_size=60, test=False):
         self.segment_size = segment_size
         self.test = test
 
-    def preference_elicitation(self, segment_one, segment_two, env_id, iteration):
+    def preference_elicitation(self, segment_one, segment_two):
         """
         Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
         """
+        segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
+        segment_obs_actionTwo, true_rewardTwo, predicted_rewardTwo = segment_two
 
-        # Verzeichnisse flexibel erstellen
-        # Basispfad wird dynamisch über abspath bestimmt, Ordner werden mit makedirs erstellt, falls sie nicht existieren
-        # Dateien und Pfade werden mit path.join zusammengesetzt
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        upload_dir = os.path.join(base_dir, 'uploads')
-
-
-        # Verzeichnisse erstellen, falls sie nicht existieren
-        os.makedirs(upload_dir, exist_ok=True)
-
-        # Verzeichnisse leeren
-        def clear_directory(directory):
-            if os.path.exists(directory):
-                for file in os.listdir(directory):
-                    file_path = os.path.join(directory, file)
-                    try:
-                        if os.path.isfile(file_path) or os.path.islink(file_path):
-                            os.unlink(file_path)  # Dateien löschen
-                        elif os.path.isdir(file_path):
-                            shutil.rmtree(file_path)  # Unterverzeichnisse löschen
-                    except Exception as e:
-                        print(f"Fehler beim Löschen von {file_path}: {e}")
-
-        clear_directory(upload_dir)
-
-
-        # erstmal nicht nebenläufig: nimmt zwei Videos auf, verschiebt sie in den Ordner für Flask, labelt sie und löscht sie dann
-        record_video_for_segment(env_id, segment_one, upload_dir, self.counter, iteration)
-        self.counter += 1
-        record_video_for_segment(env_id, segment_two, upload_dir, self.counter, iteration)
-        self.counter += 1
-
-        # Äußere Schleife sorgt für eine Wiederholung, falls es beim Abruf der Serverdaten zu einem Fehler kommt
-        while True:
-                try:
-                    # innere Schleife wartet explizit auf einen Button-Status, um Interaktion zu erkennen
-                    while True:
-                        # Button-Drücke bekommen
-                        # requests.get sendet eine HTTP-GET-Anfrage an den lokalen Flask-Server
-                        # Antwort: Der Server antwortet mit einem JSON-Objekt, das den akt. Status enthält, z.B. {"status":[0,1]}
-                        response = requests.get('http://127.0.0.1:5000/status')
-                        state = response.json()
-                        button_status = state['status']
-                        # wieder HTTP-GET-Anfrage, diesmal zur Abfrage, ob ein Button gedrückt wurde (Antwort z.B. {"set": true})
-                        response2 = requests.get('http://127.0.0.1:5000/set')
-                        state2 = response2.json()
-                        button_set = state2['set']
-                        print(button_status)
-                        print(button_set)
-                        # falls Button gedrückt wurde, weitergehen, sonst darauf warten
-                        if (button_set == True):
-                            break
-                        # Server wird nur alle 2 Sekunden abgefragt, um Überlastungen zu vermeiden
-                        # Dafür ist die Reaktionszeit nicht gut --> könnte man vielleicht auf 0.5 setzen
-                        time.sleep(2)
-
-                    if (button_set == True):
-                        # labeln
-                        segment_obs_actionOne, _, predicted_rewardOne = segment_one
-                        segment_obs_actionTwo, _, predicted_rewardTwo = segment_two
-                        labelOne, labelTwo = button_status
-
-                        # Status des Buttons wird auf False gesetzt
-                        # --> verhindert, dass alte Statuswerte aus vorherigen Iterationen weiterverwendet werden
-                        # erstmal nur lokal
-                        button_set = False
-                        # hier wird jetzt an Flask das Signal gesendet, den Button-Set wieder auf False zu setzen
-                        response = requests.post('http://127.0.0.1:5000/set', json={"new_value": button_set})
-
-                        print('label gesetzt', button_status)
-
-                        # fertig verarbeitete Videos aus Ordner löschen
-                        # dafür Pfade der beiden Videos aus dem uploads-Ordner speichern und dann endgültig
-                        # aus dem Ordner löschen, damit der wieder clean für die neuen Videos ist
-                        upload_files = [f for f in os.listdir(upload_dir) if f.endswith('.mp4')]
-                        upload_paths = [os.path.join(upload_dir, file) for file in upload_files]
-
-                        for upload_file in upload_paths:
-                            os.remove(upload_file)
-
-                        # jetzt auch aus der äußeren Schleife rausgehen, weil Benutzerabfrage erfolgreich stattgefunden hat
-                        break
-                    time.sleep(1)
-
-                # Falls die Verbindung zum Flask-Server fehlschlägt (z.B. Server nicht gestartet), wird der Fehler abgefangen.
-                # Statt eines Absturzes wird 1 Sekunde gewartet und dann erneut versucht, sich zu verbinden.
-                except requests.exceptions.ConnectionError as e:
-                    print(f"Fehler bei der Verbindung zum Flask-Server: {e}")
-                    time.sleep(1)
+        if true_rewardOne > true_rewardTwo:
+            labelOne = 1
+            labelTwo = 0
+        elif true_rewardTwo > true_rewardOne:
+            labelOne = 0
+            labelTwo = 1
+        else:
+            labelOne = labelTwo = 0.5
 
         return (
             segment_obs_actionOne,
@@ -119,7 +30,7 @@ class Labeling:
         )
 
     def select_segments(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, amount_preferences
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
     ):
         """
         Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
@@ -129,7 +40,7 @@ class Labeling:
         predicted_rewards_buffer = np.array(predicted_rewards_buffer)
 
         data_points = len(env_reward_buffer)
-        segment_amount = amount_preferences*2
+        segment_amount = data_points // self.segment_size
 
         segments = []
         for _ in range(segment_amount):
@@ -144,38 +55,22 @@ class Labeling:
         return segments
 
     def get_labeled_data(
-        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, env_id, iteration, amount_preferences
+        self, obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
     ):
         """
         Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
         """
         labeled_data = []
         segments = self.select_segments(
-            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, amount_preferences
+            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer
         )
-
-        # Flask als Thread starten
-        # Funktion start_flask() wird als Ziel angegeben --> nach dem Starten des Threads wird diese Funktion ausgeführt
-        flask_thread = Thread(target=start_flask, daemon = True)
-        flask_thread.start()
-        # Frage: Welche Funktion führt Flask eigentlich aus??
-        # Flask verwendet eine Schleife, die kontinuierlich auf HTTP-Anfragen wartet
-        # Wird Flask automatisch wieder beendet?
 
         while len(segments) > 1:
             segment_one = segments.pop()
             segment_two = segments.pop()
             segments_label_reward = self.preference_elicitation(
-                segment_one, segment_two, env_id, iteration
+                segment_one, segment_two
             )
-            # Ich hätte gedacht, man muss hier auf Flask warten
             labeled_data.append(segments_label_reward)
-        
-        # warum wartet man hier auf Flask?
-        # flask_thread.join --> kann glaube ich weg
-
-        # Flask ganz beenden. Ist die Frage, ob wir das nach jeder Episode wollen oder ob Flask lieber die ganze
-        # Zeit laufen soll --> hängt wahrscheinlich auch davon ab, wie wir das mit der Anzahl der Abfragen machen
-        # requests.post('http://127.0.0.1:5000/shutdown', json={})
 
         return labeled_data

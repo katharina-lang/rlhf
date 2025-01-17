@@ -7,8 +7,4 @@ models/
 videos/
 __pycache__/
 .DS_Store/
-venv2/
-segment_videos/
-runs/
-uploads/
 ant_runs/

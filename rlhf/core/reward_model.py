@@ -88,7 +88,7 @@ def train_reward_model_ensemble(reward_models, reward_optimizers, labeled_data, 
     Each model has a separate loss and optimizer.
     """
     model_losses = [0.0 for _ in range(len(reward_models))]
-    
+
     for opt in reward_optimizers:
         opt.zero_grad()
 
