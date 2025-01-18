@@ -25,6 +25,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 button_status = (-1, -1) # das Label
 button_set = False # wurde für diese Segmente schon ein Button gedrückt (=> kann neues Label von labeling.py abgefragt werden)?
 video_paths = [] # aktuelle Videos
+videos_ready = False
 
 @app.route('/stop', methods=['POST'])
 def stop_app():
@@ -83,15 +84,16 @@ def button_action():
         button_set = True
 
     # neue Videos laden
+    global videos_ready
+    while (videos_ready == False):
+        time.sleep(0.1)
+        print("in while button")
+    print("aus while button")
+    videos_ready = False
     video_files = os.listdir(app.config['UPLOAD_FOLDER'])
     videos = [f for f in video_files if f.endswith('.mp4')]
     global video_paths
     video_paths.clear()
-
-    # sind schon zwei neue Videos in Ordner? Wenn nicht, darauf warten
-    while (len(videos) <= 1):
-        time.sleep(1)
-        videos = [f for f in video_files if f.endswith('.mp4')]
 
     videos.sort(key=lambda x: int(x.split('_')[1]))
 
@@ -104,8 +106,14 @@ def button_action():
 @app.route('/get-videos', methods=['GET'])
 def get_videos():
     global video_paths
+    global videos_ready
     print("Video Paths:", video_paths)
     if not video_paths:
+        while (videos_ready == False):
+            time.sleep(0.1)
+            print("in while")
+        print("aus while")
+        videos_ready = False
         video_files = os.listdir(app.config['UPLOAD_FOLDER'])
         print("Video Files in Uploads:", video_files)
         videos = [f"/uploads/{f}" for f in video_files if f.endswith('.mp4')]
@@ -132,6 +140,17 @@ def set_set():
     if "new_value" in data:
         button_set = data["new_value"]
         return jsonify({"message": "Variable aktualisiert!", "variable": button_set})
+    else:
+        return jsonify({"error": "Kein neuer Wert übergeben!"}), 400
+
+# von labeling.py, videos_ready nach auf True setzen, wenn Videos komplett fertig aufgenommen -> können dann angezeigt werden
+@app.route('/setVideosReady', methods=['POST'])
+def set_videos_ready():
+    global videos_ready
+    data = request.json  # Erwartet JSON-Daten
+    if "new_value" in data:
+        videos_ready = data["new_value"]
+        return jsonify({"message": "Variable aktualisiert!", "variable": videos_ready})
     else:
         return jsonify({"error": "Kein neuer Wert übergeben!"}), 400
 

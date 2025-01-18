@@ -55,6 +55,11 @@ class Labeling:
         record_video_for_segment(env_id, segment_two, upload_dir, self.counter, iteration)
         self.counter += 1
 
+        videos_ready = True
+        # hier wird jetzt an Flask das Signal gesendet, videos_ready auf True zu setzen, da Videos fertig aufgenommen sind -> können angezeigt werden
+        response = requests.post(f"{base_url}/setVideosReady", json={"new_value": videos_ready})
+        print("videos ready!")
+
         # Äußere Schleife sorgt für eine Wiederholung, falls es beim Abruf der Serverdaten zu einem Fehler kommt
         while True:
                 try:
@@ -75,7 +80,7 @@ class Labeling:
                             break
                         # Server wird nur alle 2 Sekunden abgefragt, um Überlastungen zu vermeiden
                         # Dafür ist die Reaktionszeit nicht gut --> könnte man vielleicht auf 0.5 setzen
-                        time.sleep(2)
+                        time.sleep(0.1)
 
                     if button_set:
                         # labeln
@@ -90,25 +95,15 @@ class Labeling:
                         # hier wird jetzt an Flask das Signal gesendet, den Button-Set wieder auf False zu setzen
                         response = requests.post(f"{base_url}/set", json={"new_value": button_set})
 
-
-                        # fertig verarbeitete Videos aus Ordner löschen
-                        # dafür Pfade der beiden Videos aus dem uploads-Ordner speichern und dann endgültig
-                        # aus dem Ordner löschen, damit der wieder clean für die neuen Videos ist
-                        upload_files = [f for f in os.listdir(upload_dir) if f.endswith('.mp4')]
-                        upload_paths = [os.path.join(upload_dir, file) for file in upload_files]
-
-                        for upload_file in upload_paths:
-                            os.remove(upload_file)
-
                         # jetzt auch aus der äußeren Schleife rausgehen, weil Benutzerabfrage erfolgreich stattgefunden hat
                         break
-                    time.sleep(1)
+                    time.sleep(0.1)
 
                 # Falls die Verbindung zum Flask-Server fehlschlägt (z.B. Server nicht gestartet), wird der Fehler abgefangen.
                 # Statt eines Absturzes wird 1 Sekunde gewartet und dann erneut versucht, sich zu verbinden.
                 except requests.exceptions.ConnectionError as e:
                     print(f"Fehler bei der Verbindung zum Flask-Server: {e}")
-                    time.sleep(1)
+                    time.sleep(0.1)
 
         return (
             segment_obs_actionOne,

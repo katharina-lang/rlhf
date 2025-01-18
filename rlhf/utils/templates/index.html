@@ -9,8 +9,8 @@
         async function loadVideos() {
             try {
                 // Zeige den Loading-Indikator an
-                document.getElementById('loading-indicator').style.display = 'block';
-                document.getElementById('video-container').style.display = 'none';
+                //document.getElementById('loading-indicator').style.display = 'block';
+                //document.getElementById('video-container').style.display = 'none';
 
                 const response = await fetch('/get-videos');
                 if (!response.ok) {
@@ -43,8 +43,8 @@
                 });
 
                 // Lade-Indikator ausblenden und Videos anzeigen
-                document.getElementById('loading-indicator').style.display = 'none';
-                document.getElementById('video-container').style.display = 'flex';
+                //document.getElementById('loading-indicator').style.display = 'none';
+                //document.getElementById('video-container').style.display = 'flex';
             } catch (error) {
                 console.error('Fehler beim Laden der Videos:', error);
                 document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
@@ -85,6 +85,7 @@
 
         // Button-Druck
         async function sendAction(action) {
+            console.log("sendAction");
             // Buttons deaktivieren
             const buttons = document.querySelectorAll('.button');
             buttons.forEach(button => button.disabled = true);
@@ -113,9 +114,11 @@
                 console.error('Fehler bei der Serveranfrage:', error);
             } finally {
                 // Wartesymbol ausblenden und Buttons aktivieren
+                console.log("vor dem enablen");
                 document.getElementById('loading-indicator').style.display = 'none';
                 document.getElementById('video-container').style.display = 'flex';
                 buttons.forEach(button => button.disabled = false);
+                console.log("alles enabled");
             }
         }
         window.onload = () => {
