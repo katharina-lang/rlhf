@@ -73,7 +73,7 @@ class Args:
     """the number of reward models in the ensemble"""
     num_queries: int = 700
     """the number of queries for the labeler"""
-    human: bool = False
+    synthetic: bool = True
     """if a human labels or the environment acts as the synthetic labeler """
     uncertainty_based: bool = True
     """if the pairs selected for reward model training are chosen based on disagreement of the reward model"""

@@ -65,11 +65,6 @@ class PPO:
             for model in self.reward_models
         ]
 
-        # self.reward_model = RewardModel(input_dim=input_dim).to(self.device)
-        # self.reward_optimizer = optim.Adam(
-        #     self.reward_model.parameters(), lr=1e-3, weight_decay=1e-5
-        # )
-
         # Falls Testdaten vorhanden
         if test_data:
             (

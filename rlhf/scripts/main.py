@@ -23,18 +23,41 @@ def start_rollout_loop(ppo, num_iterations):
     min_queries_per_training = 5
     amount_of_trainings = total_queries // min_queries_per_training
     div = num_iterations // amount_of_trainings
-
     queries_trained = 0
 
-    updates = num_iterations
+    # per_iter = total_queries // num_iterations
+    # extra_at_start = total_queries % num_iterations
+
+    if num_iterations > total_queries:
+        raise Exception()
 
     for iteration in range(1, num_iterations + 1):
+        # queries = per_iter
+        # if iteration == 1:
+        #     queries += extra_at_start
+        # queries_trained += queries
+
         if ppo.args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / num_iterations
             lrnow = frac * ppo.args.learning_rate
             ppo.optimizer.param_groups[0]["lr"] = lrnow
 
         ppo.collect_rollout_data()
+
+        # labeling = Labeling(
+        #     segment_size, ppo.args.synthetic, ppo.args.uncertainty_based
+        # )
+        # labeled_data = labeling.get_labeled_data(
+        #     ppo.obs_action_pair_buffer,
+        #     ppo.env_reward_buffer,
+        #     ppo.predicted_rewards_buffer,
+        #     ppo.reward_models,
+        #     queries,
+        # )
+
+        # train_reward_model_ensemble(
+        #     ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
+        # )
 
         if iteration % div == 0:
             queries = min(min_queries_per_training, total_queries)
@@ -43,11 +66,14 @@ def start_rollout_loop(ppo, num_iterations):
                 total_queries -= min_queries_per_training
                 queries_trained += queries
 
-                labeling = Labeling(segment_size)
+                labeling = Labeling(
+                    segment_size, ppo.args.synthetic, ppo.args.uncertainty_based
+                )
                 labeled_data = labeling.get_labeled_data(
                     ppo.obs_action_pair_buffer,
                     ppo.env_reward_buffer,
                     ppo.predicted_rewards_buffer,
+                    ppo.reward_models,
                     queries,
                 )
 
