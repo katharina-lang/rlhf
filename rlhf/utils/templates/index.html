@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rlhf</title>
+    <script>
+        // hier werden die Videos geladen. Ist es ein Problem, dass die Fuktion async ist? Werden sie deshalb nicht neu geladen?
+        async function loadVideos() {
+            try {
+                // Zeige den Loading-Indikator an
+                //document.getElementById('loading-indicator').style.display = 'block';
+                //document.getElementById('video-container').style.display = 'none';
+
+                const response = await fetch('/get-videos');
+                if (!response.ok) {
+                    throw new Error('Fehler beim Abrufen der Videos.');
+                }
+
+                const data = await response.json();
+
+                if (!data.videos || data.videos.length < 2) {
+                    throw new Error('Nicht genügend Videos verfügbar.');
+                }
+
+                // Video-Container leeren und neue Videos hinzufügen
+                const videoContainer = document.getElementById('video-container');
+                videoContainer.innerHTML = '';
+
+                data.videos.forEach(video => {
+                    const videoElement = document.createElement('video');
+                    videoElement.controls = true;
+                    videoElement.autoplay = true;
+                    videoElement.loop = true;
+                    videoElement.muted = true;
+
+                    const sourceElement = document.createElement('source');
+                    sourceElement.src = video;
+                    sourceElement.type = 'video/mp4';
+
+                    videoElement.appendChild(sourceElement);
+                    videoContainer.appendChild(videoElement);
+                });
+
+                // Lade-Indikator ausblenden und Videos anzeigen
+                //document.getElementById('loading-indicator').style.display = 'none';
+                //document.getElementById('video-container').style.display = 'flex';
+            } catch (error) {
+                console.error('Fehler beim Laden der Videos:', error);
+                document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
+            }
+        }
+
+
+
+        async function checkLabelingCompletion() {
+            try {
+                const response = await fetch('/is-labeling-complete');
+                if (!response.ok) {
+                    throw new Error('Fehler beim Abfragen des Status.');
+                }
+
+                const data = await response.json();
+                if (data.complete) {
+                    // Pop-Up anzeigen
+                    alert("Das Labeln aller Videos ist abgeschlossen! Sie können das Fenster schließen.");
+                    
+                    // Statusanzeige aktualisieren
+                    document.getElementById('status').innerText = "";
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    document.getElementById('video-container').style.display = 'none';
+                    document.getElementById('finished').style.display = 'block'
+                    const buttons = document.querySelectorAll('.button');
+                    buttons.forEach(button => button.disabled = true);
+                    // Stoppe die weitere Überprüfung
+                    clearInterval(labelCheckInterval);
+                }
+            } catch (error) {
+                console.error('Fehler beim Überprüfen des Status:', error);
+            }
+        }
+
+        // Initialisiere regelmäßige Überprüfung
+        const labelCheckInterval = setInterval(checkLabelingCompletion, 500);
+
+        // Button-Druck
+        async function sendAction(action) {
+            console.log("sendAction");
+            // Buttons deaktivieren
+            const buttons = document.querySelectorAll('.button');
+            buttons.forEach(button => button.disabled = true);
+
+            // Wartesymbol anzeigen
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('video-container').style.display = 'none';
+
+            try {
+                // Serveranfrage senden
+                const response = await fetch('/button_action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: action })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status) {
+                        document.getElementById('status').innerText = `Status: ${data.status}`;
+                    }
+                    // Lade Videos neu
+                    await loadVideos();
+                }
+            } catch (error) {
+                console.error('Fehler bei der Serveranfrage:', error);
+            } finally {
+                // Wartesymbol ausblenden und Buttons aktivieren
+                console.log("vor dem enablen");
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('video-container').style.display = 'flex';
+                buttons.forEach(button => button.disabled = false);
+                console.log("alles enabled");
+            }
+        }
+        window.onload = () => {
+            loadVideos();
+        };
+
+    </script>
+    <!-- Position der Buttons festlegen -->
+     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh; /* Voller Viewport-Bereich */
+            overflow: hidden; /* Kein Scrollen */
+        }
+
+        #video-container {
+            display: flex;
+            justify-content: center;
+            gap: 5%;
+            padding: 1%;
+        }
+
+        #video-container video {
+            max-height: 70vh;
+            height: auto;
+            max-width: 45%; /* Videos verkleinern, wenn Platz fehlt */
+            width: 45%;
+            object-fit: cover;
+        }
+
+        .button-container {
+            justify-content: center;
+            display: grid;
+            grid-template-rows: max-content max-content max-content;
+            grid-template-columns: max-content max-content max-content;
+            gap: 5%;
+            padding: 2%;
+            bottom: 5%;
+        }
+
+        .button {
+            flex: 1; /* Alle Buttons gleich groß */
+            max-width: 20%;
+            min-width: 100px;
+            text-align: center;
+            font-size: 100%;
+            cursor: pointer;
+            width: 100%;
+            border: 2px solid black;
+            transform: translateY(-50%);
+        }
+
+        #button-top {
+            grid-row-end: 1;
+            grid-column-end: 2;
+        }
+
+        #button-left {
+            grid-row-end: 2;
+            grid-column-end: 1;
+        }
+
+        #button-right {
+            grid-row-end: 2;
+            grid-column-end: 3;
+        }
+
+        #button-bottom {
+            grid-row-end: 3;
+            grid-column-end: 2;
+        }
+
+        #status-container {
+            margin-top: 2%; /* Abstand über dem Status */
+            text-align: center; /* Text zentrieren */
+        }
+
+        @media (max-width: 768px) {
+            #video-container video {
+                max-height: 70vh;
+                max-width: 45%; /* Videos kleiner bei schmalen Bildschirmen */
+            }
+
+            .button {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-height: 600px) {
+            #video-container video {
+                max-height: 60vh; /* Noch kleinere Videos bei sehr wenig vertikalem Platz */
+            }
+
+            .button {
+                font-size: 0.8rem; /* Kleinere Buttons */
+            }
+        }
+
+        @media (min-width: 468px) and (max-height: 600px) {
+
+            body {
+                overflow: scroll; /* Scrollen, wenn Fenster sehr schmal */
+            }
+
+            #video-container video {
+                max-height: 60vh; /* Noch kleinere Videos bei sehr wenig vertikalem Platz */
+            }
+
+            .button {
+                font-size: 0.8rem; /* Kleinere Buttons */
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <!--Videos, nicht statisch festgelegt welche geladen-->
+    <h1>Which segment do you prefer?</h1>
+    <div id="loading-indicator" style="display: none;">
+        <p>Loading...</p>
+    </div> 
+    <div id="finished" style="display: none;">
+        <p>Labeling finished. You can close the window now.</p>
+    </div>    
+    <div id="video-container">
+        <p>Keine Videos geladen.</p>
+    </div>
+
+    <!-- Buttons -->
+    <div class="button-container">
+        <button id="button-left" class="button" onclick="sendAction('left')">left</button>
+        <button id="button-right" class="button" onclick="sendAction('right')">right</button>
+        <button id="button-top" class="button" onclick="sendAction('equal')">equal</button>
+        <button id="button-bottom" class="button" onclick="sendAction('none')">none</button> 
+    </div>
+
+    <div id="status-container">
+    <p id="status">Status: (-1, -1)</p>
+    </div>
+</body>
+</html>

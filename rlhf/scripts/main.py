@@ -2,10 +2,14 @@ import time
 import torch
 import numpy as np
 import tyro
+import os
+import shutil
+import threading
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
+from rlhf.utils.app import start_flask, flask_port, monitor_app
 
 
 def start_rollout_loop(ppo, num_iterations):
@@ -16,7 +20,6 @@ def start_rollout_loop(ppo, num_iterations):
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
-
     segment_size = 60
 
     total_queries = ppo.args.num_queries
@@ -66,8 +69,17 @@ def start_rollout_loop(ppo, num_iterations):
                 total_queries -= min_queries_per_training
                 queries_trained += queries
 
+                Labeling.counter = 0
+                preferences_for_iteration = calculate_preferences(
+                    iteration, num_iterations, ppo.args.amount_preferences
+                )
+                
+                global flask_port
+                if flask_port is None:  # Falls Flask noch nicht gestartet ist
+                    flask_port = start_flask()
+
                 labeling = Labeling(
-                    segment_size, ppo.args.synthetic, ppo.args.uncertainty_based
+                    segment_size, ppo.args.synthetic, ppo.args.uncertainty_based,flask_port=flask_port
                 )
                 labeled_data = labeling.get_labeled_data(
                     ppo.obs_action_pair_buffer,
@@ -75,11 +87,17 @@ def start_rollout_loop(ppo, num_iterations):
                     ppo.predicted_rewards_buffer,
                     ppo.reward_models,
                     queries,
+                    ppo.args.env_id, 
+                    iteration,  # Übergibt die Iteration
+                    preferences_for_iteration
                 )
 
                 train_reward_model_ensemble(
                     ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
                 )
+
+        # Assign labeled data to the PPO agent
+        ppo.labeled_data = labeled_data
 
         ppo.advantage_calculation()
 
@@ -101,15 +119,56 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.record_rewards_for_plotting_purposes(explained_var)
 
-    print(queries_trained)
+def calculate_preferences(iteration, total_iterations, total_preferences):
+    """
+    Berechnet die Anzahl der Präferenzen, die in der aktuellen Iteration abgefragt werden sollen.
+    Die Verteilung erfolgt nichtlinear, z.B. durch exponentielle Abnahme.
+    
+    Args:
+        iteration (int): Aktuelle Iteration.
+        total_iterations (int): Gesamte Anzahl an Iterationen.
+        total_preferences (int): Gesamte Anzahl an Präferenzen.
 
+    Returns:
+        int: Anzahl der Präferenzen für diese Iteration.
+    """
+    # Parameter für die exponentielle Abnahme
+    alpha = 3  # Steuerung der Abnahmegeschwindigkeit
+    weight = np.exp(-alpha * (iteration / total_iterations))
+    preferences_for_iteration = int(total_preferences * weight)
+
+    # Mindestanzahl an Präferenzen sichern (z.B. 1 Präferenz pro Iteration)
+    return max(preferences_for_iteration, 1)
+
+def clear_uploads_folder(folder_path):
+    """Bereinigt den Ordner `uploads`, indem alle Dateien und Unterordner gelöscht werden."""
+    if os.path.exists(folder_path):
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)  # Datei oder Symlink löschen
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)  # Unterordner löschen
+            except Exception as e:
+                print(f"Fehler beim Löschen von {file_path}: {e}")
+    else:
+        # Falls der Ordner nicht existiert, erstelle ihn
+        os.makedirs(folder_path)
+        print(f"Ordner {folder_path} wurde erstellt.")
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    ppo = PPO(run_name, args)
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    uploads_folder = os.path.join(BASE_DIR, 'uploads')
+
+    # Ordner bereinigen vor dem Start von Flask
+    clear_uploads_folder(uploads_folder)
+
+    ppo = PPO(run_name, args, test_data=False)
     # Start the rollout loop
     start_rollout_loop(ppo, args.num_iterations)
 
