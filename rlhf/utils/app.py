@@ -43,7 +43,7 @@ def stop_app():
 def monitor_app():
     global app_should_stop, preferences_labeled
     while not app_should_stop:
-        if preferences_labeled >= Args.amount_preferences:
+        if preferences_labeled >= Args.num_queries:
             # Wartezeit, damit das Frontend die Erfolgsmeldung anzeigen kann
             time.sleep(1)
             # Beende den Server
@@ -169,7 +169,7 @@ def uploaded_file(filename):
 def is_labeling_complete():
     """Prüft, ob das Labeln abgeschlossen ist."""
     global preferences_labeled
-    if preferences_labeled >= Args.amount_preferences:
+    if preferences_labeled >= Args.num_queries:
         return jsonify({'complete': True})
     return jsonify({'complete': False})
 
