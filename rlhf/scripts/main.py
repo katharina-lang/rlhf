@@ -47,20 +47,6 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-        # labeling = Labeling(
-        #     segment_size, ppo.args.synthetic, ppo.args.uncertainty_based
-        # )
-        # labeled_data = labeling.get_labeled_data(
-        #     ppo.obs_action_pair_buffer,
-        #     ppo.env_reward_buffer,
-        #     ppo.predicted_rewards_buffer,
-        #     ppo.reward_models,
-        #     queries,
-        # )
-
-        # train_reward_model_ensemble(
-        #     ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
-        # )
 
         if iteration % div == 0:
             queries = min(min_queries_per_training, total_queries)
@@ -70,9 +56,6 @@ def start_rollout_loop(ppo, num_iterations):
                 queries_trained += queries
 
                 Labeling.counter = 0
-                preferences_for_iteration = calculate_preferences(
-                    iteration, num_iterations, ppo.args.amount_preferences
-                )
                 
                 global flask_port
                 if flask_port is None:  # Falls Flask noch nicht gestartet ist
@@ -87,17 +70,13 @@ def start_rollout_loop(ppo, num_iterations):
                     ppo.predicted_rewards_buffer,
                     ppo.reward_models,
                     queries,
-                    ppo.args.env_id, 
-                    iteration,  # Übergibt die Iteration
-                    preferences_for_iteration
+                    ppo.args.env_id,
+                    iteration
                 )
 
                 train_reward_model_ensemble(
                     ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
                 )
-
-        # Assign labeled data to the PPO agent
-        ppo.labeled_data = labeled_data
 
         ppo.advantage_calculation()
 
@@ -119,26 +98,6 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.record_rewards_for_plotting_purposes(explained_var)
 
-def calculate_preferences(iteration, total_iterations, total_preferences):
-    """
-    Berechnet die Anzahl der Präferenzen, die in der aktuellen Iteration abgefragt werden sollen.
-    Die Verteilung erfolgt nichtlinear, z.B. durch exponentielle Abnahme.
-    
-    Args:
-        iteration (int): Aktuelle Iteration.
-        total_iterations (int): Gesamte Anzahl an Iterationen.
-        total_preferences (int): Gesamte Anzahl an Präferenzen.
-
-    Returns:
-        int: Anzahl der Präferenzen für diese Iteration.
-    """
-    # Parameter für die exponentielle Abnahme
-    alpha = 3  # Steuerung der Abnahmegeschwindigkeit
-    weight = np.exp(-alpha * (iteration / total_iterations))
-    preferences_for_iteration = int(total_preferences * weight)
-
-    # Mindestanzahl an Präferenzen sichern (z.B. 1 Präferenz pro Iteration)
-    return max(preferences_for_iteration, 1)
 
 def clear_uploads_folder(folder_path):
     """Bereinigt den Ordner `uploads`, indem alle Dateien und Unterordner gelöscht werden."""

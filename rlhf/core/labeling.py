@@ -1,5 +1,13 @@
 import numpy as np
 import torch
+import os
+import shutil
+import requests
+import time
+from threading import Thread
+from rlhf.utils.app import start_flask
+from rlhf.core.record_segments import record_video_for_segment
+
 
 
 class Labeling:
@@ -11,7 +19,7 @@ class Labeling:
         self.uncertainty_based = uncertainty_based
         self.flask_port = flask_port
 
-    def preference_elicitation(self, segment_one, segment_two):
+    def preference_elicitation(self, segment_one, segment_two, env_id, iteration):
         """
         Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
         """
@@ -132,12 +140,12 @@ class Labeling:
         A pair consists of two segments
         A segment consists of (segment_obs_action, true_reward, predicted_reward)
         """
-        pairs_withvariance = []
+        pairs_with_variance = []
         for _ in range(queries * 4):
             indices = np.random.choice(len(segments), 2, replace=False)
             pair = [segments[indices[0]], segments[indices[1]]]
-            segment_obsactionOne, _ , _ = pair[0]
-            segment_obsactionTwo, _ , _ = pair[1]
+            segment_obs_actionOne, _ , _ = pair[0]
+            segment_obs_actionTwo, _ , _ = pair[1]
             segment_obs_actionOne = torch.tensor(segment_obs_actionOne)
             segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo)
             choices = np.zeros(len(reward_models))
@@ -164,6 +172,8 @@ class Labeling:
             predicted_rewards_buffer,
             reward_models,
             queries,
+            env_id,
+            iteration
         ):
             """
             Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
@@ -177,10 +187,10 @@ class Labeling:
             if self.uncertainty_based:
 
                 pairs = self.pairs_by_variance(segments, reward_models, queries)
-                labeleddata = []
-                for segments,  in pairs:
+                labeled_data = []
+                for segments,_ in pairs:
                     segments_label_reward = self.preference_elicitation(
-                        segments[0], segments[1]
+                        segments[0], segments[1], env_id, iteration
                     )
                     labeled_data.append(segments_label_reward)
 
@@ -213,7 +223,7 @@ class Labeling:
 
             data_points = len(env_reward_buffer)
             # achtung das muss noch geupdated werden, für varianz
-            segmentamount = queries * 2
+            segment_amount = queries * 2
 
             segments = []
             for _ in range(segment_amount):
