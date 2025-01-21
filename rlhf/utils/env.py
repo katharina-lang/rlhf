@@ -23,7 +23,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
                 high=10,
                 shape=env.observation_space.shape,
                 dtype=env.observation_space.dtype,
-            ),
+            )
         )
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))

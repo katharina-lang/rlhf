@@ -18,13 +18,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
-# Erstellt das Upload-Verzeichnis, falls es nicht existiert
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Variablen
-button_status = (-1, -1) # das Label
-button_set = False # wurde für diese Segmente schon ein Button gedrückt (=> kann neues Label von labeling.py abgefragt werden)?
-video_paths = [] # aktuelle Videos
+button_status = (-1, -1)
+button_set = False
+video_paths = []
 videos_ready = False
 
 @app.route('/stop', methods=['POST'])
@@ -38,7 +36,6 @@ def stop_app():
     func()
     return jsonify({"message": "App wird beendet und uploads-Ordner bereinigt."})
 
-
 # Überwachung in einem separaten Thread
 def monitor_app():
     global app_should_stop, preferences_labeled
@@ -46,18 +43,15 @@ def monitor_app():
         if preferences_labeled >= Args.num_queries:
             # Wartezeit, damit das Frontend die Erfolgsmeldung anzeigen kann
             time.sleep(1)
-            # Beende den Server
             os.kill(os.getpid(), signal.SIGINT)
-            break  # Beende die Schleife, sobald das Labeln abgeschlossen ist
-        time.sleep(1)
-
+            break
+        time.sleep(0.1)
 
 @app.route('/')
 def index():
     print("index")
     return render_template('index.html')
 
-# wenn Button gedrückt
 @app.route('/button_action', methods=['POST'])
 def button_action():
     global button_status
@@ -67,7 +61,7 @@ def button_action():
     # Label erstellen
     if action == 'left':
         button_status = (1, 0)
-        button_set = True # Button wurde gedrückt
+        button_set = True
     elif action == 'right':
         button_status = (0, 1)
         button_set = True
@@ -87,8 +81,6 @@ def button_action():
     global videos_ready
     while (videos_ready == False):
         time.sleep(0.1)
-        print("in while button")
-    print("aus while button")
     videos_ready = False
     video_files = os.listdir(app.config['UPLOAD_FOLDER'])
     videos = [f for f in video_files if f.endswith('.mp4')]
@@ -97,7 +89,6 @@ def button_action():
 
     videos.sort(key=lambda x: int(x.split('_')[1]))
 
-    # aktuelle Videos
     video_paths.append(f"/uploads/{videos[0]}")
     video_paths.append(f"/uploads/{videos[1]}")
     return jsonify({'status': button_status, 'set': button_set, 'videos': video_paths})
@@ -107,36 +98,29 @@ def button_action():
 def get_videos():
     global video_paths
     global videos_ready
-    print("Video Paths:", video_paths)
     if not video_paths:
         while (videos_ready == False):
             time.sleep(0.1)
-            print("in while")
-        print("aus while")
         videos_ready = False
         video_files = os.listdir(app.config['UPLOAD_FOLDER'])
-        print("Video Files in Uploads:", video_files)
         videos = [f"/uploads/{f}" for f in video_files if f.endswith('.mp4')]
         video_paths.extend(videos)    
     return jsonify({'videos': video_paths})
 
-# Label an labeling.py
 @app.route('/status', methods=['GET'])
 def get_status():
     global button_status
     return jsonify({'status': button_status})
 
-# Wurde Button gedrückt an labeling.py
 @app.route('/set', methods=['GET'])
 def get_set():
     global button_set
     return jsonify({'set': button_set})
 
-# von labeling.py, button_set nach Verarbeitung der Label wieder auf False setzen
 @app.route('/set', methods=['POST'])
 def set_set():
     global button_set
-    data = request.json  # Erwartet JSON-Daten
+    data = request.json
     if "new_value" in data:
         button_set = data["new_value"]
         return jsonify({"message": "Variable aktualisiert!", "variable": button_set})
@@ -147,7 +131,7 @@ def set_set():
 @app.route('/setVideosReady', methods=['POST'])
 def set_videos_ready():
     global videos_ready
-    data = request.json  # Erwartet JSON-Daten
+    data = request.json
     if "new_value" in data:
         videos_ready = data["new_value"]
         return jsonify({"message": "Variable aktualisiert!", "variable": videos_ready})
@@ -186,7 +170,6 @@ def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('', 0))
         return s.getsockname()[1]
-
 
 def start_flask():
     """Startet die Flask-App auf einem dynamischen Port und speichert den Port global."""
