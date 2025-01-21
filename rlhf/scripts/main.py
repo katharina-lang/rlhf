@@ -56,10 +56,10 @@ def start_rollout_loop(ppo, num_iterations):
                 queries_trained += queries
 
                 Labeling.counter = 0
-                
-                global flask_port
-                if flask_port is None:  # Falls Flask noch nicht gestartet ist
-                    flask_port = start_flask()
+                if (args.synthetic==False):
+                    global flask_port
+                    if flask_port is None:  # Falls Flask noch nicht gestartet ist
+                        flask_port = start_flask()
 
                 labeling = Labeling(
                     segment_size, ppo.args.synthetic, ppo.args.uncertainty_based,flask_port=flask_port
