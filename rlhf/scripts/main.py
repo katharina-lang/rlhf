@@ -31,9 +31,7 @@ def start_rollout_loop(ppo, num_iterations):
     # per_iter = total_queries // num_iterations
     # extra_at_start = total_queries % num_iterations
 
-    if num_iterations > total_queries:
-        raise Exception()
-
+    data = []
     for iteration in range(1, num_iterations + 1):
         # queries = per_iter
         # if iteration == 1:
@@ -47,7 +45,6 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-
         if iteration % div == 0:
             queries = min(min_queries_per_training, total_queries)
 
@@ -56,13 +53,16 @@ def start_rollout_loop(ppo, num_iterations):
                 queries_trained += queries
 
                 Labeling.counter = 0
-                if (args.synthetic==False):
+                if args.synthetic == False:
                     global flask_port
                     if flask_port is None:  # Falls Flask noch nicht gestartet ist
                         flask_port = start_flask()
 
                 labeling = Labeling(
-                    segment_size, ppo.args.synthetic, ppo.args.uncertainty_based,flask_port=flask_port
+                    segment_size,
+                    ppo.args.synthetic,
+                    ppo.args.uncertainty_based,
+                    flask_port=flask_port,
                 )
                 labeled_data = labeling.get_labeled_data(
                     ppo.obs_action_pair_buffer,
@@ -71,12 +71,18 @@ def start_rollout_loop(ppo, num_iterations):
                     ppo.reward_models,
                     queries,
                     ppo.args.env_id,
-                    iteration
+                    iteration,
                 )
+                data.extend(labeled_data)
 
-                train_reward_model_ensemble(
-                    ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
-                )
+        if data:
+            batch_size = 64
+            tmp_data = data
+            if len(data) > batch_size * 5:
+                tmp_data = data[-batch_size * 5 :]
+            train_reward_model_ensemble(
+                ppo.reward_models, ppo.optimizers, tmp_data, ppo.device, batch_size
+            )
 
         ppo.advantage_calculation()
 
@@ -116,13 +122,14 @@ def clear_uploads_folder(folder_path):
         os.makedirs(folder_path)
         print(f"Ordner {folder_path} wurde erstellt.")
 
+
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    uploads_folder = os.path.join(BASE_DIR, 'uploads')
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    uploads_folder = os.path.join(BASE_DIR, "uploads")
 
     # Ordner bereinigen vor dem Start von Flask
     clear_uploads_folder(uploads_folder)
