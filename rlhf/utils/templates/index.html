@@ -5,13 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>rlhf</title>
     <script>
-        // hier werden die Videos geladen. Ist es ein Problem, dass die Fuktion async ist? Werden sie deshalb nicht neu geladen?
         async function loadVideos() {
             try {
-                // Zeige den Loading-Indikator an
-                //document.getElementById('loading-indicator').style.display = 'block';
-                //document.getElementById('video-container').style.display = 'none';
-
                 const response = await fetch('/get-videos');
                 if (!response.ok) {
                     throw new Error('Fehler beim Abrufen der Videos.');
@@ -42,29 +37,25 @@
                     videoContainer.appendChild(videoElement);
                 });
 
-                // Lade-Indikator ausblenden und Videos anzeigen
-                //document.getElementById('loading-indicator').style.display = 'none';
-                //document.getElementById('video-container').style.display = 'flex';
             } catch (error) {
                 console.error('Fehler beim Laden der Videos:', error);
                 document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
             }
         }
 
-
-
         async function checkLabelingCompletion() {
             try {
                 const response = await fetch('/is-labeling-complete');
+
                 if (!response.ok) {
                     throw new Error('Fehler beim Abfragen des Status.');
                 }
 
                 const data = await response.json();
+
                 if (data.complete) {
                     // Pop-Up anzeigen
                     alert("Das Labeln aller Videos ist abgeschlossen! Sie können das Fenster schließen.");
-                    
                     // Statusanzeige aktualisieren
                     document.getElementById('status').innerText = "";
                     document.getElementById('loading-indicator').style.display = 'none';
@@ -86,6 +77,7 @@
         // Button-Druck
         async function sendAction(action) {
             console.log("sendAction");
+
             // Buttons deaktivieren
             const buttons = document.querySelectorAll('.button');
             buttons.forEach(button => button.disabled = true);
@@ -93,7 +85,7 @@
             // Wartesymbol anzeigen
             document.getElementById('loading-indicator').style.display = 'block';
             document.getElementById('video-container').style.display = 'none';
-
+            
             try {
                 // Serveranfrage senden
                 const response = await fetch('/button_action', {
@@ -101,7 +93,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: action })
                 });
-
                 if (response.ok) {
                     const data = await response.json();
                     if (data.status) {
@@ -121,12 +112,12 @@
                 console.log("alles enabled");
             }
         }
+
         window.onload = () => {
             loadVideos();
         };
 
     </script>
-    <!-- Position der Buttons festlegen -->
      <style>
         body {
             margin: 0;
@@ -134,8 +125,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100vh; /* Voller Viewport-Bereich */
-            overflow: hidden; /* Kein Scrollen */
+            height: 100vh;
+            overflow: hidden;
         }
 
         #video-container {
@@ -148,7 +139,7 @@
         #video-container video {
             max-height: 70vh;
             height: auto;
-            max-width: 45%; /* Videos verkleinern, wenn Platz fehlt */
+            max-width: 45%;
             width: 45%;
             object-fit: cover;
         }
@@ -164,7 +155,7 @@
         }
 
         .button {
-            flex: 1; /* Alle Buttons gleich groß */
+            flex: 1;
             max-width: 20%;
             min-width: 100px;
             text-align: center;
@@ -196,16 +187,15 @@
         }
 
         #status-container {
-            margin-top: 2%; /* Abstand über dem Status */
-            text-align: center; /* Text zentrieren */
+            margin-top: 2%;
+            text-align: center;
         }
 
         @media (max-width: 768px) {
             #video-container video {
                 max-height: 70vh;
-                max-width: 45%; /* Videos kleiner bei schmalen Bildschirmen */
+                max-width: 45%;
             }
-
             .button {
                 max-width: 100%;
             }
@@ -213,24 +203,20 @@
 
         @media (max-height: 600px) {
             #video-container video {
-                max-height: 60vh; /* Noch kleinere Videos bei sehr wenig vertikalem Platz */
+                max-height: 60vh;
             }
-
             .button {
-                font-size: 0.8rem; /* Kleinere Buttons */
+                font-size: 0.8rem;
             }
         }
 
         @media (min-width: 468px) and (max-height: 600px) {
-
             body {
                 overflow: scroll; /* Scrollen, wenn Fenster sehr schmal */
             }
-
             #video-container video {
                 max-height: 60vh; /* Noch kleinere Videos bei sehr wenig vertikalem Platz */
             }
-
             .button {
                 font-size: 0.8rem; /* Kleinere Buttons */
             }
@@ -239,7 +225,6 @@
     </style>
 </head>
 <body>
-    <!--Videos, nicht statisch festgelegt welche geladen-->
     <h1>Which segment do you prefer?</h1>
     <div id="loading-indicator" style="display: none;">
         <p>Loading...</p>
@@ -251,7 +236,6 @@
         <p>Keine Videos geladen.</p>
     </div>
 
-    <!-- Buttons -->
     <div class="button-container">
         <button id="button-left" class="button" onclick="sendAction('left')">left</button>
         <button id="button-right" class="button" onclick="sendAction('right')">right</button>
