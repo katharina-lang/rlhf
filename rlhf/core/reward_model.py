@@ -22,43 +22,20 @@ class RewardModel(nn.Module):
         return self.model(x)
 
 
-def train_reward_model_ensemble(
-    reward_models, reward_optimizers, labeled_data, device, batch_size=64
-):
+def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
     """
-    Train a list (ensemble) of reward models with mini-batches.
-    Each model has a separate loss and optimizer, and each model
-    sees the same batches but in a different random order.
+    Computes total (summed) loss of the given model on 'data_pairs'.
+    data_pairs is a flat list of:
+        (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo), _).
 
-    Parameters:
-        reward_models: List of RewardModel instances
-        reward_optimizers: List of corresponding torch.optim Optimizers
-        labeled_data: A list of labeled pairs, where each element has:
-            (
-                segment_obs_actionOne,
-                segment_obs_actionTwo,
-                (labelOne, labelTwo),
-                (predicted_rewardOne, predicted_rewardTwo),
-            )
-        device: 'cpu' or 'cuda'
-        batch_size: How many pairs per batch (default 64)
+    This function does NOT update the model.
     """
+    model.eval()  # put the model in eval mode (disables dropout, etc.)
+    total_loss = 0.0
 
-    batches = []
-    for start in range(0, len(labeled_data), batch_size):
-        batches.append(labeled_data[start : start + batch_size])
-
-    for model_index, (model, opt) in enumerate(zip(reward_models, reward_optimizers)):
-        total_loss_for_model = 0.0
-
-        batch_indices = list(range(len(batches)))
-        random.shuffle(batch_indices)
-
-        for batch_idx in batch_indices:
-            batch = batches[batch_idx]
-
-            opt.zero_grad()
-
+    with torch.no_grad():
+        for start in range(0, len(data_pairs), batch_size):
+            batch = data_pairs[start : start + batch_size]
             batch_loss = 0.0
 
             for labeled_pair in batch:
@@ -66,9 +43,10 @@ def train_reward_model_ensemble(
                     segment_obs_actionOne,
                     segment_obs_actionTwo,
                     (labelOne, labelTwo),
-                    (predicted_rewardOne, predicted_rewardTwo),
+                    _,
                 ) = labeled_pair
 
+                # Send to device
                 segment_obs_actionOne = torch.tensor(
                     segment_obs_actionOne, device=device
                 )
@@ -76,50 +54,154 @@ def train_reward_model_ensemble(
                     segment_obs_actionTwo, device=device
                 )
 
+                # Forward pass
                 pred_r1 = model(segment_obs_actionOne).sum()
                 pred_r2 = model(segment_obs_actionTwo).sum()
 
-                assert not torch.isnan(pred_r1).any(), "pred_r1 contains NaN values!"
-                assert not torch.isinf(pred_r1).any(), "pred_r1 contains Inf values!"
-                assert not torch.isnan(pred_r2).any(), "pred_r2 contains NaN values!"
-                assert not torch.isinf(pred_r2).any(), "pred_r2 contains Inf values!"
-                assert pred_r1.abs().max() < 1e6, "pred_r1 has extreme values!"
-                assert pred_r2.abs().max() < 1e6, "pred_r2 has extreme values!"
-
-                # Probability that segment_obs_actionOne is "better"
+                # Probability that segment_obs_actionOne is better
                 prob_one = torch.exp(pred_r1) / (
                     torch.exp(pred_r1) + torch.exp(pred_r2)
                 )
                 prob_two = 1 - prob_one
-
-                assert not torch.isnan(prob_one).any(), "prob_one contains NaN values!"
-                assert not torch.isinf(prob_one).any(), "prob_one contains Inf values!"
-                assert not torch.isnan(prob_two).any(), "prob_two contains NaN values!"
-                assert not torch.isinf(prob_two).any(), "prob_two contains Inf values!"
 
                 # True labels
                 labels = torch.tensor(
                     [labelOne, labelTwo], dtype=torch.float32, device=device
                 )
 
-                # Cross-entropy style loss for pairwise preference
+                # Cross-entropy style pairwise preference loss
                 pair_loss = -(
                     labels[0] * torch.log(prob_one + 1e-8)
                     + labels[1] * torch.log(prob_two + 1e-8)
                 )
 
-                # Accumulate
-                batch_loss += pair_loss
+                batch_loss += pair_loss.item()
 
-            # Compute gradients batch
-            batch_loss.backward()
+            total_loss += batch_loss
 
-            # optimizer step
-            opt.step()
+    model.train()
+    return total_loss
 
-            # Keep track of the numeric value
-            total_loss_for_model += batch_loss.item()
 
-        # print(f"Model {model_index} updated. Total loss: {total_loss_for_model:.4f}")
+def train_reward_model_ensemble(
+    reward_models,
+    reward_optimizers,
+    labeled_data,
+    val_data,
+    device,
+    batch_size=64,
+    epochs=1,
+    writer=None,
+):
+    """
+    Train a list (ensemble) of reward models with mini-batches.
+    Each model has a separate loss and optimizer.
+    We do an 80/20 split on the labeled pairs for train vs. validation.
 
-    print("Reward Models updated")
+    reward_models:      list of RewardModel instances
+    reward_optimizers:  list of corresponding torch.optim.Optimizer
+    labeled_data:       list of labeled pairs of the form:
+                                  (segment_obs_actionOne,
+                                   segment_obs_actionTwo,
+                                   (labelOne, labelTwo),
+                                   (predicted_rewardOne, predicted_rewardTwo))
+    device:             "cpu" or "cuda"
+    batch_size:         number of pairs in each batch
+    epochs:             how many epochs to train for
+    writer:             optional, a tensorboard SummaryWriter for logging
+    """
+
+    train_pairs = labeled_data
+
+    for epoch in range(epochs):
+        random.shuffle(train_pairs)
+
+        # Create batches from the shuffled train pairs
+        train_batches = []
+        for start in range(0, len(train_pairs), batch_size):
+            train_batches.append(train_pairs[start : start + batch_size])
+
+        for model_idx, (model, opt) in enumerate(zip(reward_models, reward_optimizers)):
+            total_train_loss = 0.0
+
+            # Shuffle the order of the batches for each model
+            batch_indices = list(range(len(train_batches)))
+            random.shuffle(batch_indices)
+
+            # Train on each batch
+            for b_idx in batch_indices:
+                batch = train_batches[b_idx]
+
+                opt.zero_grad()
+                batch_loss = 0.0
+
+                for labeled_pair in batch:
+                    (
+                        segment_obs_actionOne,
+                        segment_obs_actionTwo,
+                        (labelOne, labelTwo),
+                        _,
+                    ) = labeled_pair
+
+                    # Move inputs to device
+                    segment_obs_actionOne = torch.tensor(
+                        segment_obs_actionOne, device=device
+                    )
+                    segment_obs_actionTwo = torch.tensor(
+                        segment_obs_actionTwo, device=device
+                    )
+
+                    # Forward pass
+                    pred_r1 = model(segment_obs_actionOne).sum()
+                    pred_r2 = model(segment_obs_actionTwo).sum()
+
+                    # Probability that segment_obs_actionOne is "better"
+                    prob_one = torch.exp(pred_r1) / (
+                        torch.exp(pred_r1) + torch.exp(pred_r2)
+                    )
+                    prob_two = 1 - prob_one
+
+                    # Labels
+                    labels = torch.tensor(
+                        [labelOne, labelTwo], dtype=torch.float32, device=device
+                    )
+
+                    cross_val_loss = -(
+                        labels[0] * torch.log(prob_one + 1e-8)
+                        + labels[1] * torch.log(prob_two + 1e-8)
+                    )
+
+                    # Accumulate loss for this mini-batch
+                    batch_loss += cross_val_loss
+
+                # Backprop on the batch
+                batch_loss.backward()
+                opt.step()
+
+                total_train_loss += batch_loss.item()
+
+            if val_data:
+                random.shuffle(val_data)
+                val_loss = compute_reward_model_loss(
+                    model, val_data, device, batch_size=batch_size
+                )
+
+                # Log the training and validation losses if a writer is provided
+                if writer is not None:
+                    # Log the *(avg)total* training loss for this epoch;
+                    # Elena, nochmal drüberschauen
+                    writer.add_scalar(
+                        f"Model_{model_idx}/TrainLoss",
+                        total_train_loss / len(train_pairs),
+                        epoch,
+                    )
+                    writer.add_scalar(
+                        f"Model_{model_idx}/ValLoss", val_loss / len(val_data), epoch
+                    )
+
+                print(
+                    f"[Epoch {epoch+1}/{epochs}] Model {model_idx} "
+                    f"=> Train Loss: {total_train_loss/len(train_pairs):.4f}, Val Loss: {val_loss/len(val_data):.4f}"
+                )
+
+    print("All Reward Models updated.")

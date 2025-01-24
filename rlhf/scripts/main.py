@@ -5,6 +5,7 @@ import tyro
 import os
 import shutil
 import threading
+import random
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model_ensemble
@@ -23,6 +24,7 @@ def start_rollout_loop(ppo, num_iterations):
     segment_size = 60
 
     total_queries = ppo.args.num_queries
+
     min_queries_per_training = 5
     amount_of_trainings = total_queries // min_queries_per_training
     div = num_iterations // amount_of_trainings
@@ -31,7 +33,8 @@ def start_rollout_loop(ppo, num_iterations):
     # per_iter = total_queries // num_iterations
     # extra_at_start = total_queries % num_iterations
 
-    data = []
+    train_data = []
+    val_data = []
     for iteration in range(1, num_iterations + 1):
         # queries = per_iter
         # if iteration == 1:
@@ -73,15 +76,33 @@ def start_rollout_loop(ppo, num_iterations):
                     ppo.args.env_id,
                     iteration,
                 )
-                data.extend(labeled_data)
 
-        if data:
+                if True:  # später with validation
+                    random.shuffle(labeled_data)
+                    split_idx = int(0.8 * len(labeled_data))
+                    train_data.extend(labeled_data[:split_idx])
+                    val_data.extend(labeled_data[split_idx:])
+                else:
+                    random.shuffle(labeled_data)
+                    train_data.extend(labeled_data)
+
+        if train_data:
             batch_size = 64
-            tmp_data = data
-            if len(data) > batch_size * 5:
-                tmp_data = data[-batch_size * 5 :]
+
+            if len(train_data) > batch_size * 5:
+                tmp_train_data = train_data[-batch_size * 5 :]
+            else:
+                tmp_train_data = train_data
+
             train_reward_model_ensemble(
-                ppo.reward_models, ppo.optimizers, tmp_data, ppo.device, batch_size
+                ppo.reward_models,
+                ppo.optimizers,
+                tmp_train_data,
+                val_data,
+                ppo.device,
+                batch_size,
+                epochs=1,
+                writer=ppo.writer,
             )
 
         ppo.advantage_calculation()
