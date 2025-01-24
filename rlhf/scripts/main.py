@@ -77,7 +77,7 @@ def start_rollout_loop(ppo, num_iterations):
                     iteration,
                 )
 
-                if True:  # später with validation
+                if ppo.args.validation:
                     random.shuffle(labeled_data)
                     split_idx = int(0.8 * len(labeled_data))
                     train_data.extend(labeled_data[:split_idx])
