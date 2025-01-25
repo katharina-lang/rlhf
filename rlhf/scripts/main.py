@@ -129,6 +129,27 @@ if __name__ == "__main__":
 
     ppo = PPO(run_name, args, test_data=False)
     # Start the rollout loop
+
+    if ppo.args.unsupervised_pretraining:
+        print("Entered Unsupervised Pre-Training.")
+        num_pt_iterations = int(0.25 * args.num_iterations)
+        for pt_iteration in range(num_pt_iterations):
+            ppo.collect_rollout_data(unsupervised_pretraining=True)
+
+            ppo.advantage_calculation()
+
+            ppo.agent.optimize_agent_and_critic(
+                ppo.obs,
+                ppo.actions,
+                ppo.logprobs,
+                ppo.advantages,
+                ppo.returns,
+                ppo.values,
+                ppo.optimizer,
+                ppo.args,
+            )
+        print("Left Unsupervised Pre-Training.")
+
     start_rollout_loop(ppo, args.num_iterations)
 
     if args.save_model:
