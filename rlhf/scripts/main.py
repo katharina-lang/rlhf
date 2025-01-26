@@ -28,9 +28,13 @@ def start_rollout_loop(ppo, num_iterations):
     min_queries_per_training = 5
     amount_of_trainings = total_queries // min_queries_per_training
     div = num_iterations // amount_of_trainings
+    if div == 0:  # weniger iterations als trainings
+        # dann jede iteration trainieren
+        min_queries_per_training += 5
     queries_trained = 0
 
     # per_iter = total_queries // num_iterations
+    # print(per_iter)
     # extra_at_start = total_queries % num_iterations
 
     train_data = []
@@ -48,7 +52,7 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-        if iteration % div == 0:
+        if div == 0 or (iteration % div == 0 or iteration == 1):
             queries = min(min_queries_per_training, total_queries)
 
             if queries > 0:

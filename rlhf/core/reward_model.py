@@ -145,7 +145,6 @@ def train_reward_model_ensemble(
                         _,
                     ) = labeled_pair
 
-                    # Move inputs to device
                     segment_obs_actionOne = torch.tensor(
                         segment_obs_actionOne, device=device
                     )
@@ -163,7 +162,6 @@ def train_reward_model_ensemble(
                     )
                     prob_two = 1 - prob_one
 
-                    # Labels
                     labels = torch.tensor(
                         [labelOne, labelTwo], dtype=torch.float32, device=device
                     )
@@ -188,7 +186,7 @@ def train_reward_model_ensemble(
                     model, val_data, device, batch_size=batch_size
                 )
 
-                # Log the training and validation losses if a writer is provided
+                # Log the training and validation losses
                 if writer is not None:
                     # Log the *(avg)total* training loss for this epoch;
                     # Elena, nochmal drüberschauen
