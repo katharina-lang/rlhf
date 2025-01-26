@@ -5,6 +5,7 @@ import tyro
 import os
 import shutil
 import threading
+import random
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model_ensemble
@@ -23,17 +24,21 @@ def start_rollout_loop(ppo, num_iterations):
     segment_size = 60
 
     total_queries = ppo.args.num_queries
+
     min_queries_per_training = 5
     amount_of_trainings = total_queries // min_queries_per_training
     div = num_iterations // amount_of_trainings
+    if div == 0:  # weniger iterations als trainings
+        # dann jede iteration trainieren
+        min_queries_per_training += 5
     queries_trained = 0
 
     # per_iter = total_queries // num_iterations
+    # print(per_iter)
     # extra_at_start = total_queries % num_iterations
 
-    if num_iterations > total_queries:
-        raise Exception()
-
+    train_data = []
+    val_data = []
     for iteration in range(1, num_iterations + 1):
         # queries = per_iter
         # if iteration == 1:
@@ -47,8 +52,7 @@ def start_rollout_loop(ppo, num_iterations):
 
         ppo.collect_rollout_data()
 
-
-        if iteration % div == 0:
+        if div == 0 or (iteration % div == 0 or iteration == 1):
             queries = min(min_queries_per_training, total_queries)
 
             if queries > 0:
@@ -56,13 +60,16 @@ def start_rollout_loop(ppo, num_iterations):
                 queries_trained += queries
 
                 Labeling.counter = 0
-                if (args.synthetic==False):
+                if args.synthetic == False:
                     global flask_port
                     if flask_port is None:  # Falls Flask noch nicht gestartet ist
                         flask_port = start_flask()
 
                 labeling = Labeling(
-                    segment_size, ppo.args.synthetic, ppo.args.uncertainty_based,flask_port=flask_port
+                    segment_size,
+                    ppo.args.synthetic,
+                    ppo.args.uncertainty_based,
+                    flask_port=flask_port,
                 )
                 labeled_data = labeling.get_labeled_data(
                     ppo.obs_action_pair_buffer,
@@ -71,12 +78,36 @@ def start_rollout_loop(ppo, num_iterations):
                     ppo.reward_models,
                     queries,
                     ppo.args.env_id,
-                    iteration
+                    iteration,
                 )
 
-                train_reward_model_ensemble(
-                    ppo.reward_models, ppo.optimizers, labeled_data, ppo.device
-                )
+                if ppo.args.validation:
+                    random.shuffle(labeled_data)
+                    split_idx = int(0.8 * len(labeled_data))
+                    train_data.extend(labeled_data[:split_idx])
+                    val_data.extend(labeled_data[split_idx:])
+                else:
+                    random.shuffle(labeled_data)
+                    train_data.extend(labeled_data)
+
+        if train_data:
+            batch_size = 64
+
+            if len(train_data) > batch_size * 5:
+                tmp_train_data = train_data[-batch_size * 5 :]
+            else:
+                tmp_train_data = train_data
+
+            train_reward_model_ensemble(
+                ppo.reward_models,
+                ppo.optimizers,
+                tmp_train_data,
+                val_data,
+                ppo.device,
+                batch_size,
+                epochs=1,
+                writer=ppo.writer,
+            )
 
         ppo.advantage_calculation()
 
@@ -116,13 +147,14 @@ def clear_uploads_folder(folder_path):
         os.makedirs(folder_path)
         print(f"Ordner {folder_path} wurde erstellt.")
 
+
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    uploads_folder = os.path.join(BASE_DIR, 'uploads')
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    uploads_folder = os.path.join(BASE_DIR, "uploads")
 
     # Ordner bereinigen vor dem Start von Flask
     clear_uploads_folder(uploads_folder)
