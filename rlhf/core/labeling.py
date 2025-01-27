@@ -173,6 +173,7 @@ class Labeling:
     ):
         """
         Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
+        queries ist die Anzahl der der trajektorien paare die in diesem durchlauf aufgenommen werden sollen
         """
 
         segments = self.select_segments(
@@ -213,13 +214,17 @@ class Labeling:
     ):
         """
         Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
+        Gibt eine Liste von segmenten zurück
+        Ein segment besteht hierbei aus einer trajektorie, dem enviroment reward und dem predicted reward
+        Eine trajektorie setzt sich aus mehreren observation, action paaren zusammen
+        Die rewards sind Zahlen
         """
         obs_action_pair_buffer = np.array(obs_action_pair_buffer)
         env_reward_buffer = np.array(env_reward_buffer)
         predicted_rewards_buffer = np.array(predicted_rewards_buffer)
 
         data_points = len(env_reward_buffer)
-        # achtung das muss noch geupdated werden, für varianz
+        # doppelt so viele Segmente wie queries, da zu jedem labeled_pair zwei segmente gehören
         segment_amount = queries * 2
 
         segments = []
@@ -227,8 +232,8 @@ class Labeling:
             start_idx = np.random.randint(0, data_points - self.segment_size)
             end_idx = start_idx + self.segment_size
             segment_obs_action = obs_action_pair_buffer[start_idx:end_idx]
-            true_reward = sum(env_reward_buffer[start_idx:end_idx])
+            env_reward = sum(env_reward_buffer[start_idx:end_idx])
             predicted_reward = predicted_rewards_buffer[start_idx:end_idx]
-            segment = (segment_obs_action, true_reward, predicted_reward)
+            segment = (segment_obs_action, env_reward, predicted_reward)
             segments.append(segment)
         return segments
