@@ -27,8 +27,8 @@ def start_rollout_loop(ppo, num_iterations):
 
     queries_trained = 0
     # ich habe num_iterations und queries
-    # ich habe will x queries per iteration (mind 3)
-    queries_per_iter = max(total_queries // num_iterations, 3)
+    # ich will x queries per iteration (mind 3)
+    queries_per_iter = max((total_queries // num_iterations) + 1, 3)
 
     train_data = []
     val_data = []
@@ -64,7 +64,7 @@ def start_rollout_loop(ppo, num_iterations):
                 ppo.env_reward_buffer,
                 ppo.predicted_rewards_buffer,
                 ppo.reward_models,
-                queries,  # a querie is the prompt for a pair of two trajectories
+                queries,  # a query is the prompt for a pair of two trajectories
                 ppo.args.env_id,
                 iteration,
             )
@@ -78,24 +78,22 @@ def start_rollout_loop(ppo, num_iterations):
                 random.shuffle(labeled_data)
                 train_data.extend(labeled_data)
 
-        if train_data:
-            batch_size = 64
+        batch_size = 64
+        if len(train_data) > batch_size * 4:
+            tmp_train_data = train_data[-batch_size * 5 :]
+        else:
+            tmp_train_data = train_data
 
-            if len(train_data) > batch_size * 5:
-                tmp_train_data = train_data[-batch_size * 5 :]
-            else:
-                tmp_train_data = train_data
-
-            train_reward_model_ensemble(
-                ppo.reward_models,
-                ppo.optimizers,
-                tmp_train_data,
-                val_data,
-                ppo.device,
-                batch_size,
-                epochs=1,
-                writer=ppo.writer,
-            )
+        train_reward_model_ensemble(
+            ppo.reward_models,
+            ppo.optimizers,
+            tmp_train_data,
+            val_data,
+            ppo.device,
+            batch_size,
+            writer=ppo.writer,
+            global_step=ppo.global_step,
+        )
 
         ppo.advantage_calculation()
 
