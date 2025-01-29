@@ -135,6 +135,8 @@ if __name__ == "__main__":
         num_pt_iterations = int(0.25 * args.num_iterations)
         for pt_iteration in range(num_pt_iterations):
             ppo.collect_rollout_data(unsupervised_pretraining=True)
+            avg_intrinsic_reward = torch.mean(ppo.rewards).item()
+            print(f"Average Intrinsic Reward (Iteration {pt_iteration + 1}): {avg_intrinsic_reward}")
 
             ppo.advantage_calculation()
 

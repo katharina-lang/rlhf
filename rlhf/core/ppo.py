@@ -67,7 +67,7 @@ class PPO:
         ]
 
         if self.args.unsupervised_pretraining:
-            self.density_model, self.dens_optimizer, self.dens_loss_fn = up.initialize_autoencoder(self.envs)
+            self.density_model = up.KNNDensityModel(k=5)  # kNN density model
 
         # Falls Testdaten vorhanden
         if test_data:
@@ -106,16 +106,15 @@ class PPO:
             )
 
             if unsupervised_pretraining:
+                self.density_model.add_states(self.next_obs.cpu().numpy())
                 self.env_reward = torch.tensor(
-                    up.compute_intrinsic_reward(next_obs, self.density_model, self.dens_loss_fn), 
-                    dtype=torch.float32
+                    [
+                        up.compute_intrinsic_reward(state, self.density_model)
+                        for state in next_obs
+                    ],
+                    dtype=torch.float32,
                 ).to(self.device)
                 iteration_reward += self.env_reward
-                self.dens_optimizer.zero_grad()
-                reconstructed = self.density_model(torch.tensor(next_obs, dtype=torch.float32))
-                loss = self.dens_loss_fn(reconstructed, torch.tensor(next_obs, dtype=torch.float32))
-                loss.backward()
-                self.dens_optimizer.step()
 
             state_action_pairs = np.hstack(
                 [self.next_obs.cpu().numpy(), action.cpu().numpy()]
