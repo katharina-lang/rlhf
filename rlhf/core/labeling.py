@@ -24,8 +24,8 @@ class Labeling:
         """
         Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
         """
-        segment_obs_actionOne, true_rewardOne, predicted_rewardOne = segment_one
-        segment_obs_actionTwo, true_rewardTwo, predicted_rewardTwo = segment_two
+        segment_obs_actionOne, true_rewardOne = segment_one
+        segment_obs_actionTwo, true_rewardTwo = segment_two
 
         if self.synthetic:
 
@@ -37,12 +37,7 @@ class Labeling:
                 labelTwo = 1
             else:
                 labelOne = labelTwo = 0.5
-            return (
-                segment_obs_actionOne,
-                segment_obs_actionTwo,
-                (labelOne, labelTwo),
-                (predicted_rewardOne, predicted_rewardTwo),
-            )
+            return (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo))
 
         print("Labeling: Flask Port ist: ", self.flask_port)
 
@@ -134,14 +129,14 @@ class Labeling:
         Returns a list of tuples
         A tuple consists of (pair, variance) and the list is sorted by variance (in deacreasing order)
         A pair consists of two segments
-        A segment consists of (segment_obs_action, true_reward, predicted_reward)
+        A segment consists of (segment_obs_action, env_reward)
         """
         pairs_with_variance = []
         for _ in range(queries * 4):
             indices = np.random.choice(len(segments), 2, replace=False)
             pair = [segments[indices[0]], segments[indices[1]]]
-            segment_obs_actionOne, _, _ = pair[0]
-            segment_obs_actionTwo, _, _ = pair[1]
+            segment_obs_actionOne, _ = pair[0]
+            segment_obs_actionTwo, _ = pair[1]
             segment_obs_actionOne = torch.tensor(segment_obs_actionOne)
             segment_obs_actionTwo = torch.tensor(segment_obs_actionTwo)
             choices = np.zeros(len(reward_models))
@@ -165,7 +160,6 @@ class Labeling:
         self,
         obs_action_pair_buffer,
         env_reward_buffer,
-        predicted_rewards_buffer,
         reward_models,
         queries,
         env_id,
@@ -177,7 +171,7 @@ class Labeling:
         """
 
         segments = self.select_segments(
-            obs_action_pair_buffer, env_reward_buffer, predicted_rewards_buffer, queries
+            obs_action_pair_buffer, env_reward_buffer, queries
         )
 
         labeled_data = []
@@ -186,10 +180,10 @@ class Labeling:
             pairs = self.pairs_by_variance(segments, reward_models, queries)
             labeled_data = []
             for segments, _ in pairs:
-                segments_label_reward = self.preference_elicitation(
+                labeled_triplet = self.preference_elicitation(
                     segments[0], segments[1], env_id, iteration
                 )
-                labeled_data.append(segments_label_reward)
+                labeled_data.append(labeled_triplet)
 
             return labeled_data
 
@@ -198,10 +192,10 @@ class Labeling:
                 queries -= 1
                 segment_one = segments.pop()
                 segment_two = segments.pop()
-                segments_label_reward = self.preference_elicitation(
+                labeled_triplet = self.preference_elicitation(
                     segment_one, segment_two, env_id, iteration
                 )
-                labeled_data.append(segments_label_reward)
+                labeled_data.append(labeled_triplet)
 
             return labeled_data
 
@@ -209,7 +203,6 @@ class Labeling:
         self,
         obs_action_pair_buffer,
         env_reward_buffer,
-        predicted_rewards_buffer,
         queries,
     ):
         """
@@ -221,7 +214,6 @@ class Labeling:
         """
         obs_action_pair_buffer = np.array(obs_action_pair_buffer)
         env_reward_buffer = np.array(env_reward_buffer)
-        predicted_rewards_buffer = np.array(predicted_rewards_buffer)
 
         data_points = len(env_reward_buffer)
         # doppelt so viele Segmente wie queries, da zu jedem labeled_pair zwei segmente gehören
@@ -233,8 +225,7 @@ class Labeling:
             end_idx = start_idx + self.segment_size
             segment_obs_action = obs_action_pair_buffer[start_idx:end_idx]
             env_reward = sum(env_reward_buffer[start_idx:end_idx])
-            predicted_reward = predicted_rewards_buffer[start_idx:end_idx]
-            segment = (segment_obs_action, env_reward, predicted_reward)
+            segment = (segment_obs_action, env_reward)
 
             segments.append(segment)
         return segments

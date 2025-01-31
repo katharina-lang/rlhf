@@ -1,15 +1,15 @@
 # Rlhf Project Documentation
 
-- [Setup](Setup)
-- [RLHF functionality](RLHF-Functionality)
-- [Overview](Overview)
-- [Data Collection](Data-Collection)
-- [Data Labeling](Data-Labeling)
-- [Reward Model Training](Reward-Model-Training)
-- [Pretraining](Pretraining)
-- [Client Server Structure](Client-Server-Structure)
-- [Results](Results)
-- [Additional Infos](Additional-Infos)
+- [Setup](#Setup)
+- [RLHF functionality](#RLHF-Functionality)
+- [Overview](#Overview)
+- [Data Collection](#Data-Collection)
+- [Data Labeling](#Data-Labeling)
+- [Reward Model Training](#Reward-Model-Training)
+- [Pretraining](#Pretraining)
+- [Client Server Structure](#Client-Server-Structure)
+- [Results](#Results)
+- [Additional Infos](#Additional-Infos)
 
 
 ## Setup
