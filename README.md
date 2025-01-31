@@ -29,11 +29,11 @@ After the environment interaction and reward prediction `save_data` saves the da
 The data is stacked first and and reshaped at the end. To make it easier to understand how the data is collected an example is provided.
 In the following example we have two environments. The observation space dimension is two and the action space dimension is one.
 The data which is collected looks like the following:
-![obs-action-pair](readme_imgages/obs_action/pairs_start.png)
+![obs-action-pair](/readme_images/obs_action/pairs_start.png)
 When new data is collected, the data is stacked with np.hstack:
-![obs-action-buffer](readme_imgages/obs_action/pairs_stack.png)
+![obs-action-buffer](/readme_images/obs_action/pairs_stack.png)
 After the agent environment interaction is finished for the whole iteration every data array gets flattened.
-![obs-action-output](readme_imgages/obs_action/pairs_output.png)
+![obs-action-output](/readme_images/obs_action/pairs_output.png)
 Like this we ensure that each indice corresponds to the related data.
 This almost works analogous for the predicted and environment reward. Through this, the indice i now gets the matching data from all arrays. The corresponding examples are provided in [Data collection examples](#-Data-collection-examples).
 
@@ -61,16 +61,16 @@ If validation data (`val_data`) is provided, the function computes the validatio
 ## Additional Infos
 ### Data collection examples
 #### environment reward
-![env-reward-start](/readme_imgages/env_reward/env_start.png)
+![env-reward-start](/readme_images/env_reward/env_start.png)
 
-![env-reward-stack](/readme_imgages/env_reward/env_stack.png)
+![env-reward-stack](/readme_images/env_reward/env_stack.png)
 
-![env-reward-output](/readme_imgages/env_reward/env_output.png)
+![env-reward-output](/readme_images/env_reward/env_output.png)
 #### predicted reward
 The differnce here is, that the data is saved as a tensor instead of an numpy array.
-![pred-reward-start](/readme_imgages/pred_reward/pred_start.png)
+![pred-reward-start](/readme_images/pred_reward/pred_start.png)
 
-![pred-reward-cat](/readme_imgages/pred_reward/pred_cat.png)
+![pred-reward-cat](/readme_images/pred_reward/pred_cat.png)
 
-![pred-reward-output](/readme_imgages/pred_reward/pred_output.png)
+![pred-reward-output](/readme_images/pred_reward/pred_output.png)
 
