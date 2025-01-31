@@ -39,11 +39,11 @@ A single observation action pair is a flat array itself with obs_dim+action_dim 
 
 ### Data Labeling
 Every iteration a Labeling instance is created and it's function `get_labeled_data` is called. This returns the labeled data in a format similar to the one in the paper "Deep reinforcement learning from human preferences".
-A array of triplet is returned here. One triplet looks like the following (trajectory1, trajectory2, (label1, label2)) and a trajectory consists of n observation action pairs (n=segment_size).
+An array of triplets is returned here. One triplet looks like the following: (trajectory1, trajectory2, (label1, label2)). A trajectory consists of n observation action pairs (n=segment_size).
 Through `get_labeled_data()` random segments get selected and a segment is a triplet of the trajectory, the env_reward and the predicted reward. The environment reward is the sum over all env_rewards for the corresponding observation action pairs.
-# evtl tuple wenn wir predicted reward entfernen
-After segment selection the wanted number of labeled pairs are created. Per default a uncertainty based method is used but it is also possible to randomly select these pairs.
-For the uncertainty based approach, every reward model (there is an ensemble if wanted, more about this in [Reward Model Training](Reward-Model-Training)) predicts the reward for the trajectories. The sum is taken and the preference per model is saved. From these preferences the variance computed and saved. The labeled pairs with the highest variance are returned and we exit the labeling process and continue in `main.py`.
+# Evtl tuple, wenn wir predicted reward entfernen
+After segment selection, the wanted number of labeled pairs is created. Per default, an uncertainty-based method is used but it is also possible to randomly select these pairs.
+For the uncertainty-based approach, every reward model (there is an ensemble if wanted, more about this in [Reward Model Training](Reward-Model-Training)) predicts the reward for the trajectories. The sum is taken and the preference per model is saved. From these preferences, the variance is computed and saved. The labeled pairs with the highest variance are returned and we exit the labeling process and continue in `main.py`.
 
 ### Reward Model Training
 
