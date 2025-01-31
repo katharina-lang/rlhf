@@ -62,7 +62,6 @@ def start_rollout_loop(ppo, num_iterations):
             labeled_data = labeling.get_labeled_data(
                 ppo.obs_action_pair_buffer,
                 ppo.env_reward_buffer,
-                ppo.predicted_rewards_buffer,
                 ppo.reward_models,
                 queries,  # a query is the prompt for a pair of two trajectories
                 ppo.args.env_id,
@@ -79,8 +78,10 @@ def start_rollout_loop(ppo, num_iterations):
                 train_data.extend(labeled_data)
 
         batch_size = 64
-        if len(train_data) > batch_size * 4:
-            tmp_train_data = train_data[-batch_size * 5 :]
+
+        dataset_size = 5
+        if len(train_data) > batch_size * dataset_size:
+            tmp_train_data = train_data[-batch_size * dataset_size :]
         else:
             tmp_train_data = train_data
 
