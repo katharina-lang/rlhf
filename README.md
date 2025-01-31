@@ -32,7 +32,7 @@ When new data is collected, the data is stacked with np.hstack:
 After the agent environment interaction is finished for the whole iteration every data array gets flattened.
 # Image
 Like this we ensure that each indice corresponds to the related data.
-This is analog for the predicted and environment reward.
+This works analogous for the predicted and environment reward.
 A single observation action pair is a flat array itself with obs_dim+action_dim elements. The rewards are just numbers. For consitency these numbers are also saved in a array with the reward value as the element.
 
 
