@@ -32,7 +32,9 @@ def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
 
     This function does NOT update the model.
     """
+
     model.eval()  # eval mode (disables dropout, etc.)
+
     total_loss = 0.0
 
     with torch.no_grad():
@@ -48,6 +50,7 @@ def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
                     _,
                 ) = labeled_pair
 
+
                 segment_obs_actionOne = torch.tensor(
                     segment_obs_actionOne, device=device
                 )
@@ -58,6 +61,8 @@ def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
                 # Forward pass
                 pred_r1 = model(segment_obs_actionOne).sum()
                 pred_r2 = model(segment_obs_actionTwo).sum()
+
+                # Probability that segment_obs_actionOne is better
 
                 prob_one = torch.exp(pred_r1) / (
                     torch.exp(pred_r1) + torch.exp(pred_r2)
@@ -178,6 +183,7 @@ def train_reward_model_ensemble(
             if val_data:
                 # validation loss verhältnis zu normalen loss 1.1 bis 1.5
                 # dropout während training verändern?
+
                 random.shuffle(val_data)
                 val_loss = compute_reward_model_loss(
                     model, val_data, device, batch_size=batch_size

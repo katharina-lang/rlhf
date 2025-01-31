@@ -235,5 +235,6 @@ class Labeling:
             env_reward = sum(env_reward_buffer[start_idx:end_idx])
             predicted_reward = predicted_rewards_buffer[start_idx:end_idx]
             segment = (segment_obs_action, env_reward, predicted_reward)
+
             segments.append(segment)
         return segments
