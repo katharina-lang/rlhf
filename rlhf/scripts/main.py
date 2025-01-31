@@ -146,6 +146,29 @@ if __name__ == "__main__":
     clear_uploads_folder(uploads_folder)
 
     ppo = PPO(run_name, args, test_data=False)
+
+    if ppo.args.unsupervised_pretraining:
+            print("Entered Unsupervised Pre-Training.")
+            num_pt_iterations = int(0.01 * args.num_iterations)
+            for pt_iteration in range(num_pt_iterations):
+                ppo.collect_rollout_data(unsupervised_pretraining=True)
+                avg_intrinsic_reward = torch.mean(ppo.rewards).item()
+                print(f"Average Intrinsic Reward (Iteration {pt_iteration + 1}): {avg_intrinsic_reward}")
+
+                ppo.advantage_calculation()
+
+                ppo.agent.optimize_agent_and_critic(
+                    ppo.obs,
+                    ppo.actions,
+                    ppo.logprobs,
+                    ppo.advantages,
+                    ppo.returns,
+                    ppo.values,
+                    ppo.optimizer,
+                    ppo.args,
+                )
+            print("Left Unsupervised Pre-Training.")
+
     # Start the rollout loop
     start_rollout_loop(ppo, args.num_iterations)
 

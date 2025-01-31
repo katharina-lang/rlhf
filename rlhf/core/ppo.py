@@ -9,6 +9,8 @@ from rlhf.core.agent import Agent
 from rlhf.core.reward_model import RewardModel
 from rlhf.core.ppo_setup import PPOSetup
 from scipy.stats import pearsonr
+import rlhf.core.unsupervised_pt as up
+from rlhf.core.unsupervised_pt import compute_intrinsic_reward 
 
 
 class PPO:
@@ -65,6 +67,9 @@ class PPO:
             for model in self.reward_models
         ]
 
+        if self.args.unsupervised_pretraining:
+            self.density_model = up.KNNDensityModel(k=5)
+
         # Falls Testdaten vorhanden
         if test_data:
             (
@@ -73,11 +78,14 @@ class PPO:
                 self.predicted_rewards_buffer,
             ) = test_data
 
-    def collect_rollout_data(self):
+    def collect_rollout_data(self, unsupervised_pretraining=False):
 
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
+
+        if unsupervised_pretraining:
+            iteration_reward = 0
 
         for step in range(0, self.args.num_steps):
             self.global_step += self.args.num_envs
@@ -98,25 +106,40 @@ class PPO:
                 self.envs.step(action.cpu().numpy())
             )
 
+            if unsupervised_pretraining:
+                self.density_model.add_states(self.next_obs.cpu().numpy())  # Add observed states
+                self.env_reward = torch.tensor(
+                    [
+                        compute_intrinsic_reward(state, self.density_model)
+                        for state in next_obs
+                    ],
+                    dtype=torch.float32,
+                ).to(self.device)
+                iteration_reward += self.env_reward
+
             state_action_pairs = np.hstack(
                 [self.next_obs.cpu().numpy(), action.cpu().numpy()]
             )
             state_action_tensor = torch.tensor(state_action_pairs, device=self.device)
 
-            with torch.no_grad():
-                predictions = []
-                for model in self.reward_models:
-                    pred = model(state_action_tensor)
-                    predictions.append(pred)
-                self.predicted_reward = torch.mean(torch.stack(predictions), dim=0)
+            if not unsupervised_pretraining:
+                with torch.no_grad():
+                    predictions = []
+                    for model in self.reward_models:
+                        pred = model(state_action_tensor)
+                        predictions.append(pred)
+                    self.predicted_reward = torch.mean(torch.stack(predictions), dim=0)
 
-            self.save_data(state_action_pairs)
+            self.save_data(state_action_pairs, unsupervised_pretraining)
 
             # Data Storage (cleanrl)
             self.next_done = np.logical_or(terminations, truncations)
-            self.rewards[step] = (
-                torch.tensor(self.predicted_reward).to(self.device).view(-1)
-            )
+            if not unsupervised_pretraining:
+                self.rewards[step] = (
+                    torch.tensor(self.predicted_reward).to(self.device).view(-1)
+                )
+            else:
+                self.rewards[step] = self.env_reward.clone().detach().to(self.device).view(-1)
             self.next_obs, self.next_done = torch.Tensor(next_obs).to(
                 self.device
             ), torch.Tensor(self.next_done).to(self.device)
@@ -161,11 +184,15 @@ class PPO:
                             self.global_step,
                         )
 
-        self.reshape_data()
+        if unsupervised_pretraining:
+            print("Iteration_reward: " + str(iteration_reward))
 
-        self.track_pearsonr(self.env_reward_buffer, self.predicted_rewards_buffer)
+        self.reshape_data(unsupervised_pretraining)
 
-    def save_data(self, state_action_pairs):
+        if not unsupervised_pretraining:
+            self.track_pearsonr(self.env_reward_buffer, self.predicted_rewards_buffer)
+
+    def save_data(self, state_action_pairs, unsupervised_pretraining):
         if self.obs_action_pair_buffer is None:
             self.obs_action_pair_buffer = state_action_pairs
         else:
@@ -182,15 +209,16 @@ class PPO:
                 [self.env_reward_buffer, self.env_reward]
             )
 
-        if self.predicted_rewards_buffer is None:
-            self.predicted_rewards_buffer = self.predicted_reward
+        if not unsupervised_pretraining:
+            if self.predicted_rewards_buffer is None:
+                self.predicted_rewards_buffer = self.predicted_reward
 
-        else:
-            self.predicted_rewards_buffer = torch.cat(
-                [self.predicted_rewards_buffer, self.predicted_reward], dim=1
-            )
+            else:
+                self.predicted_rewards_buffer = torch.cat(
+                    [self.predicted_rewards_buffer, self.predicted_reward], dim=1
+                )
 
-    def reshape_data(self):
+    def reshape_data(self, unsupervised_pretraining):
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
@@ -199,7 +227,8 @@ class PPO:
         )
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
         self.env_reward_buffer = self.env_reward_buffer.reshape(-1)
-        self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
+        if not unsupervised_pretraining:
+            self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
 
     def advantage_calculation(
         self,
