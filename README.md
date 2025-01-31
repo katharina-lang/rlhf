@@ -52,6 +52,8 @@ The reward model is a simple feedforward neural network with 4 fully connected l
 The `train_reward_model_ensemble` function (called in `main.py`) is responsible for training an ensemble of reward models using labeled data. Each model is trained independently with its corresponding optimizer. The function supports mini-batch training, validation, and optional logging with TensorBoard. First, the function shuffles the labeled_data at the beginning of each epoch to ensure stochasticity in training. Then, the data is divided into mini-batches of size batch_size. Each reward model in the ensemble is trained independently. To further increase training diversity, the order of the mini-batches is shuffled for each model. During the training process, for each mini-batch, the labeled observation-action pairs are passed through the model in a forward pass, where both segments in each pair are evaluated to predict their respective rewards. The cross-entropy loss is then computed by comparing the predicted probabilities with the true labels. This loss is backpropagated, and the optimizer updates the model’s parameters to minimize the loss.
 If validation data (`val_data`) is provided, the function computes the validation loss for each model at the end of every epoch using the compute_reward_model_loss function. We do this to detect potential overfitting. The training and validation losses can be logged using a TensorBoard writer, enabling the visualization of the training process and facilitating debugging or optimization. Once the training process is complete, all updated reward models in the ensemble are used later.
 
+### Pretraining
+
 ## Client Server Structure
 ## Results
 ## Additional Infos
