@@ -23,7 +23,7 @@ Then we label the data. As long as we still want queries, x pairs get labeled (x
 
 ### Data Collection
 
-Per data category (observation action pair,environment_reward, predicted_reward) we want a flat array. From the file `ppo.py` the function `collect_rollout_data` gets called in `main.py`.
+Per data category (observation action pair, environment_reward, predicted_reward) we want a flat array. From the file `ppo.py` the function `collect_rollout_data` gets called in `main.py`.
 After the environment interaction and reward prediction `save_data` saves the data into arrays.
 The data which is collected looks like the following:
 # Image
