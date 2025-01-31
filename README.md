@@ -29,7 +29,7 @@ The data which is collected looks like the following:
 # Image
 When new data is collected, the data is stacked with np.hstack:
 # Image
-After the agent environment interaction is finished for the whole iteration the every data array gets flattened.
+After the agent environment interaction is finished for the whole iteration every data array gets flattened.
 # Image
 Like this we ensure that each indice corresponds to the related data.
 This is analog for the predicted and environment reward.
