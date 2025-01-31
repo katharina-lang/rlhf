@@ -17,8 +17,8 @@
 
 ### Overview
 
-The structure of our Project can be seen in the file `rlhf/scripts/main.py`. The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure from their file remains but it is modularized. In our project we replaced the environment reward which is used for the agents (and critics) training with a reward predictor.
-The number of policy updates (num_iterations) also is the number of reward model updates. Every iteration, data is collected. The agent interacts with the environment and through this we get observations with their corresponding actions, the environemt rewards for an action and our predicted reward. Interaction with the environment is handeled through the Singleton PPO which is instanciated in `main.py` and defined in `rlhf.core.ppo.py`.
+The structure of our Project can be seen in the file `rlhf/scripts/main.py`. The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure of their file remains but it is modularized. In our project we replaced the environment reward which is used for the agents (and critics) training with a reward predictor.
+The number of policy updates (num_iterations) also is the number of reward model updates. Every iteration, data is collected. The agent interacts with the environment and through this we get observations with their corresponding actions, the environment rewards for an action and our predicted reward. Interaction with the environment is handeled through the Singleton PPO which is instanciated in `main.py` and defined in `rlhf.core.ppo.py`.
 Then we label the data. As long as we still want queries, x pairs get labeled (x = max(3, 1+total_queries//num_iterations)). After the labeling process the reward model is trained and then agent and critic are updated.
 
 ### Data Collection
