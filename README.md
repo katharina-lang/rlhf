@@ -2,14 +2,14 @@
 
 - [Setup](#setup)
 - [RLHF functionality](#rlhf-functionality)
-- [Overview](#Overview)
-- [Data Collection](#Data-Collection)
-- [Data Labeling](#Data-Labeling)
-- [Reward Model Training](#Reward-Model-Training)
-- [Pretraining](#Pretraining)
-- [Client Server Structure](#Client-Server-Structure)
-- [Results](#Results)
-- [Additional Infos](#Additional-Infos)
+- [Overview](#overview)
+- [Data Collection](#data-collection)
+- [Data Labeling](#data-labeling)
+- [Reward Model Training](#reward-model-training)
+- [Pretraining](#pretraining)
+- [Client Server Structure](#client-server-structure)
+- [Results](#results)
+- [Additional Infos](#additional-infos)
 
 
 ## Setup
@@ -42,7 +42,7 @@ After the agent environment interaction is finished for the whole iteration the 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
 Like this we ensure that each index corresponds to the related data.
-The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index i now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in [Data collection examples](#Data-collection-examples).
+The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index i now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in [Data collection examples](#data-collection-examples).
 
 
 
@@ -51,7 +51,7 @@ Every iteration a Labeling instance is created and it's function `get_labeled_da
 An array of triplets is returned here. One triplet looks like the following: (trajectory1, trajectory2, (label1, label2)). A trajectory consists of n observation action pairs (n=segment_size).
 Through `get_labeled_data()` random segments get selected and a segment is a tuple of the trajectory and the env_reward. The environment reward is the sum over all env_rewards for the corresponding observation action pairs.
 After segment selection, the wanted number of labeled pairs is created. Per default, an uncertainty-based method is used but it is also possible to randomly select these pairs.
-For the uncertainty-based approach, every reward model (there is an ensemble if wanted, more about this in [Reward Model Training](#Reward-Model-Training)) predicts the reward for the trajectories. The sum is taken and the preference per model is saved. From these preferences, the variance is computed and saved. The labeled pairs with the highest variance are returned and we exit the labeling process and continue in `main.py`.
+For the uncertainty-based approach, every reward model (there is an ensemble if wanted, more about this in [Reward Model Training](#reward-model-training)) predicts the reward for the trajectories. The sum is taken and the preference per model is saved. From these preferences, the variance is computed and saved. The labeled pairs with the highest variance are returned and we exit the labeling process and continue in `main.py`.
 
 ### Reward Model Training
 
