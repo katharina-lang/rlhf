@@ -1,7 +1,7 @@
 # Rlhf Project Documentation
 
-- [Setup](#Setup)
-- [RLHF functionality](#RLHF-Functionality)
+- [Setup](#setup)
+- [RLHF functionality](#rlhf-functionality)
 - [Overview](#Overview)
 - [Data Collection](#Data-Collection)
 - [Data Labeling](#Data-Labeling)
@@ -19,7 +19,7 @@
 ### Overview
 
 The structure of our Project can be seen in the file `rlhf/scripts/main.py`. The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure of their file remains but it is modularized. In our project we replaced the environment reward which is used for the agents (and critics) training with a reward predictor.
-The number of policy updates (num_iterations) also is the number of reward model updates. Every iteration, data is collected. The agent interacts with the environment and through this we get observations with their corresponding actions, the environment rewards for an action and our predicted reward. Interaction with the environment is handeled through the Singleton PPO which is instanciated in `main.py` and defined in `rlhf.core.ppo.py`.
+The number of policy updates (num_iterations) also is the number of reward model updates. Every iteration, data is collected. The agent interacts with the environment and through this we get observations with their corresponding actions, the environment rewards for an action and our predicted reward. Interaction with the environment is handled through the Singleton PPO which is instantiated in `main.py` and defined in `rlhf.core.ppo.py`.
 Then we label the data. As long as we still want queries, x pairs get labeled (x = max(3, 1+total_queries//num_iterations)). After the labeling process the reward model is trained and then agent and critic are updated.
 
 ### Data Collection
@@ -27,7 +27,7 @@ Then we label the data. As long as we still want queries, x pairs get labeled (x
 Per data category (observation action pair, environment_reward, predicted_reward) we want an array. The indices between these should match. From the file `ppo.py` the function `collect_rollout_data` gets called in `main.py`.
 After the environment interaction and reward prediction `save_data` saves the data into arrays.
 The data is stacked first and and reshaped at the end. To make it easier to understand how the data is collected an example is provided.
-In the following example we have two environments and visualze the process for the observation action buffer. The observation space dimension is two and the action space dimension is one.
+In the following example we have two environments and visualize the process for the observation action buffer. The observation space dimension is two and the action space dimension is one.
 Here two observation action pairs are collected (because of the two environments), and a pair consists of the concatenated observation and its action e.g. [1 2 3].
 The collected data looks like the following.
 
@@ -41,8 +41,8 @@ After the agent environment interaction is finished for the whole iteration the 
 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
-Like this we ensure that each indice corresponds to the related data.
-This almost works analogous for the predicted and environment reward. Through this, the indice i now gets the matching data from all arrays. The corresponding examples for the environment and predicted reward are provided in [Data collection examples](#-Data-collection-examples).
+Like this we ensure that each index corresponds to the related data.
+The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index i now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in [Data collection examples](#Data-collection-examples).
 
 
 
@@ -68,7 +68,7 @@ If validation data (`val_data`) is provided, the function computes the validatio
 ### Data collection examples
 For the following ecamples the number of enironments is also two.
 #### environment reward
-The data gets collected and reshaped immedialty so we can use the same procedure as for the observation_action pairs.
+The data gets collected and reshaped immediately so we can use the same procedure as for the observation_action pairs.
 
 ![env-reward-start](/readme_images/env_reward/env_start.png)
 
@@ -81,7 +81,7 @@ At last, the reshape process flattens the array so that the rewards are concaten
 ![env-reward-output](/readme_images/env_reward/env_output.png)
 
 #### predicted reward
-The difference here is, that the data is saved as a tensor instead of an numpy array. The rest is analog again.
+The difference here is, that the data is saved as a tensor instead of an Numpy array. The rest is analog again.
 
 ![pred-reward-start](/readme_images/pred_reward/pred_start.png)
 
