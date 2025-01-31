@@ -81,7 +81,7 @@ At last, the reshape process flattens the array so that the rewards are concaten
 ![env-reward-output](/readme_images/env_reward/env_output.png)
 
 #### predicted reward
-The difference here is, that the data is saved as a tensor instead of an Numpy array. The rest is analog again.
+The difference here is, that the data is saved as a tensor instead of an numpy array. The rest is analog again.
 
 ![pred-reward-start](/readme_images/pred_reward/pred_start.png)
 
