@@ -193,9 +193,6 @@ class PPO:
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
-        # self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(
-        #     self.args.num_envs, -1, input_dim
-        # )
         self.obs_action_pair_buffer = self.obs_action_pair_buffer.reshape(-1, input_dim)
         self.env_reward_buffer = self.env_reward_buffer.reshape(-1)
         self.predicted_rewards_buffer = self.predicted_rewards_buffer.reshape(-1)
