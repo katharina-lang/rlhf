@@ -5,7 +5,7 @@ import random
 
 # input dim is concatenated state, action
 class RewardModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, dropout_p=0.2):
+    def __init__(self, input_dim, hidden_dim=64, dropout_p=0.3):
         super(RewardModel, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -32,7 +32,9 @@ def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
 
     This function does NOT update the model.
     """
-    model.eval()  # put the model in eval mode (disables dropout, etc.)
+
+    model.eval()  # eval mode (disables dropout, etc.)
+
     total_loss = 0.0
 
     with torch.no_grad():
@@ -48,7 +50,7 @@ def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
                     _,
                 ) = labeled_pair
 
-                # Send to device
+
                 segment_obs_actionOne = torch.tensor(
                     segment_obs_actionOne, device=device
                 )
@@ -61,17 +63,16 @@ def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
                 pred_r2 = model(segment_obs_actionTwo).sum()
 
                 # Probability that segment_obs_actionOne is better
+
                 prob_one = torch.exp(pred_r1) / (
                     torch.exp(pred_r1) + torch.exp(pred_r2)
                 )
                 prob_two = 1 - prob_one
 
-                # True labels
                 labels = torch.tensor(
                     [labelOne, labelTwo], dtype=torch.float32, device=device
                 )
 
-                # Cross-entropy style pairwise preference loss
                 pair_loss = -(
                     labels[0] * torch.log(prob_one + 1e-8)
                     + labels[1] * torch.log(prob_two + 1e-8)
@@ -92,8 +93,9 @@ def train_reward_model_ensemble(
     val_data,
     device,
     batch_size=64,
-    epochs=1,
     writer=None,
+    global_step=0,
+    epochs=1,
 ):
     """
     Train a list (ensemble) of reward models with mini-batches.
@@ -118,7 +120,6 @@ def train_reward_model_ensemble(
     for epoch in range(epochs):
         random.shuffle(train_pairs)
 
-        # Create batches from the shuffled train pairs
         train_batches = []
         for start in range(0, len(train_pairs), batch_size):
             train_batches.append(train_pairs[start : start + batch_size])
@@ -126,11 +127,10 @@ def train_reward_model_ensemble(
         for model_idx, (model, opt) in enumerate(zip(reward_models, reward_optimizers)):
             total_train_loss = 0.0
 
-            # Shuffle the order of the batches for each model
+            # Shuffle the order of batches for each model
             batch_indices = list(range(len(train_batches)))
             random.shuffle(batch_indices)
 
-            # Train on each batch
             for b_idx in batch_indices:
                 batch = train_batches[b_idx]
 
@@ -181,6 +181,9 @@ def train_reward_model_ensemble(
                 total_train_loss += batch_loss.item()
 
             if val_data:
+                # validation loss verhältnis zu normalen loss 1.1 bis 1.5
+                # dropout während training verändern?
+
                 random.shuffle(val_data)
                 val_loss = compute_reward_model_loss(
                     model, val_data, device, batch_size=batch_size
@@ -188,15 +191,17 @@ def train_reward_model_ensemble(
 
                 # Log the training and validation losses
                 if writer is not None:
-                    # Log the *(avg)total* training loss for this epoch;
-                    # Elena, nochmal drüberschauen
+                    # Log the *(avg)total* training loss, for the global timestep
+                    # epochs always = 1
                     writer.add_scalar(
                         f"Model_{model_idx}/TrainLoss",
                         total_train_loss / len(train_pairs),
-                        epoch,
+                        global_step,
                     )
                     writer.add_scalar(
-                        f"Model_{model_idx}/ValLoss", val_loss / len(val_data), epoch
+                        f"Model_{model_idx}/ValLoss",
+                        val_loss / len(val_data),
+                        global_step,
                     )
 
                 print(
