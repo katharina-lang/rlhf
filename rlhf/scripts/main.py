@@ -79,7 +79,7 @@ def start_rollout_loop(ppo, num_iterations):
 
         batch_size = 64
 
-        dataset_size = 4
+        dataset_size = 5
         if len(train_data) > batch_size * dataset_size:
             tmp_train_data = train_data[-batch_size * dataset_size :]
         else:
