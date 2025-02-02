@@ -28,19 +28,19 @@ Before the start of the training, we create three arrays, one for our observatio
 In order to start our data collection, we call the function `collect_rollout_data` from `ppo.py` in `main.py`.
 After the environment interaction and reward prediction, `save_data` saves the collected data into the above-mentioned arrays.
 We stack the data first and then reshape it at the end. The following example illustrates the data collection process: We have two environments and want to visualize the processes happening for the observation-action buffer. The dimension of the observation space is two and the action space dimension is one.
-As we have two environments, two observation-action pairs are collected. Each pair consists of the concatenated observation and its corresponding action, e.g. [1 2 3]. After the mentioned steps, the collected data looks as follows:
+As we have two environments, two observation-action pairs are collected. Each index consists of the concatenated observation and its corresponding action, e.g. [1 2 3]. After the mentioned steps, the collected data looks as follows:
 
 ![obs-action-pair](/readme_images/obs_action/pairs_start.png)
 
-When new data is collected, it is stacked with np.hstack and one row corresponds to one environment:
+For each step, the collected data is stacked with np.hstack and each row corresponds to one environment:
 
 ![obs-action-buffer](/readme_images/obs_action/pairs_stack.png)
 
-After the agent environment interaction is finished for the whole iteration, the data arrays get reshaped. The environments data basically gets concatenated and the original observation action pairs get reconstructed.
+After the agent-environment interaction is finished for the entire iteration, the data arrays are reshaped. The environment's data is concatenated and the original observation-action pairs gare reconstructed.
 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
-Like this, we ensure that each index corresponds to the related data.
+By performing this step, we ensure that each index corresponds to the related data.
 The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in [Data collection examples](#data-collection-examples).
 
 
