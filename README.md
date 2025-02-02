@@ -18,9 +18,9 @@
 
 ### Overview
 
-The structure of our Project can be seen in the file `rlhf/scripts/main.py`. The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure of their file remains, but it is modularized. In our project, we replaced the environment reward which is used for the agents (and critics) training with a reward predictor.
-The number of policy updates (num_iterations) also is the number of reward model updates. Every iteration, data is collected. The agent interacts with the environment and through this we get observations with their corresponding actions, the environment rewards for an action and our predicted reward. Interaction with the environment is handled through the Singleton PPO, which is instantiated in `main.py` and defined in `rlhf.core.ppo.py`.
-Then we label the data. As long as we still want queries, x pairs get labeled (x = max(3, 1+total_queries//num_iterations)). After the labeling process, the reward model is trained and then agent and critic are updated.
+The structure of our project can be seen in the file `rlhf/scripts/main.py`. The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure of their file has remained, but it is now modularized. In our project, we replaced the environment reward - which is used for the agent-and-critic's training - with a reward predictor.
+The number of policy updates (num_iterations) is also the number of reward model updates. Data is collected in every iteration. Through ahe agent's interactions with the environment we receive observations as well as their corresponding actions, the environment rewards for each action and our predicted reward. Interaction with the environment is handled through the Singleton PPO which is instantiated in `main.py` and defined in `rlhf.core.ppo.py`.
+The data is then labeled by either a human or a synthetic feedback supplier in order to receive feedback on the actions that were taken. As long as queries are still required, x pairs are labeled (x = max(3, 1+total_queries//num_iterations)). After the labeling process, the reward model is trained and then agent as well as critic are updated.
 
 ### Data Collection
 
