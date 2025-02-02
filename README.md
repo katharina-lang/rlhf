@@ -40,8 +40,7 @@ After the agent-environment interaction is finished for the entire iteration, th
 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
-By performing this step, we ensure that each index corresponds to the related data.
-The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in [Data collection examples](#data-collection-examples).
+The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in the section [Data collection examples](#data-collection-examples).
 
 
 
