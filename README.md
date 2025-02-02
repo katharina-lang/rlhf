@@ -32,11 +32,11 @@ As we have two environments, two observation-action pairs are collected. Each in
 
 ![obs-action-pair](/readme_images/obs_action/pairs_start.png)
 
-For each step, the collected data is stacked with np.hstack and each row corresponds to one environment:
+For each step, the collected data is stacked with np.hstack and each row corresponds to all observation-action pairs in their correct order collected by one environment over the course of `collect_rollout_data`:
 
 ![obs-action-buffer](/readme_images/obs_action/pairs_stack.png)
 
-After the agent-environment interaction is finished for the entire iteration, the data arrays are reshaped. The environment's data is concatenated and the original observation-action pairs are reconstructed.
+After the agent-environment interaction is finished for the entire iteration, the data arrays are reshaped in such a way that the original observation-action pairs are reconstructed.
 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
