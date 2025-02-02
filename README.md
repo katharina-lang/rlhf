@@ -24,12 +24,11 @@ The data is then labeled by either a human or a synthetic feedback supplier in o
 
 ### Data Collection
 
-Per data category (observation action pair, environment_reward, predicted_reward) we want an array. The indices between these should match. From the file `ppo.py` the function `collect_rollout_data` gets called in `main.py`.
-After the environment interaction and reward prediction, `save_data` saves the data into arrays.
-The data is stacked first and reshaped at the end. To make it easier to understand how the data is collected, an example is provided.
-In the following example, we have two environments and visualize the process for the observation action buffer. The observation space dimension is two and the action space dimension is one.
-Here two observation action pairs are collected (because of the two environments), and a pair consists of the concatenated observation and its action, e.g. [1 2 3].
-The collected data looks like the following.
+Before the start of the training, we create three arrays, one for our observation-action pairs, the environment rewards and the predicted rewards respectively. Throughout the training, each training step adds a new index to each of these arrays so the indices for corresponding steps match between all three arrays. 
+In order to start our data collection, we call the function `collect_rollout_data` from `ppo.py` in `main.py`.
+After the environment interaction and reward prediction, `save_data` saves the collected data into the above-mentioned arrays.
+We stack the data first and then reshape it at the end. The following example illustrates the data collection process: We have two environments and want to visualize the processes happening for the observation-action buffer. The dimension of the observation space is two and the action space dimension is one.
+As we have two environments, two observation-action pairs are collected. Each pair consists of the concatenated observation and its corresponding action, e.g. [1 2 3]. After the mentioned steps, the collected data looks as follows:
 
 ![obs-action-pair](/readme_images/obs_action/pairs_start.png)
 
