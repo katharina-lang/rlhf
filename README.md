@@ -7,7 +7,7 @@
 - [Data Labeling](#data-labeling)
 - [Reward Model Training](#reward-model-training)
 - [Pretraining](#pretraining)
-- [Client Server Structure](#client-server-structure)
+- [Client-Server Architecture](#client-server-architecture)
 - [Results](#results)
 - [Additional Infos](#additional-infos)
 
@@ -62,7 +62,38 @@ If validation data (`val_data`) is provided, the function computes the validatio
 
 ### Pretraining
 
-## Client Server Structure
+
+## Client-Server Architecture
+
+### Overview
+We developed our UI as a Client-Server Architecture with a Flask backend and embedded the frontend directly in it.
+Our UI includes the frontend index.html and the backend app.py, which communicates with labeling.py. In main, app.py is started as a thread on a free port found in the backend as soon as human feedback is expected.
+The human labels the two displayed videos using buttons, indicating which or if one looks more like the desired behavior.
+The user interface is designed the following way:
+![User interface](/readme_images/UI.png)
+
+### Structure
+The frontend is responsible for displaying the user interface; the videos are passed from the backend to the frontend and get displayed by it.
+When a button for labeling is clicked, the backend is informed about the choice.
+The frontend is also responsible for disabling the buttons and displaying a loading message while the next videos are being recorded and the human has nothing to evaluate.
+
+The backend is responsible for the logic behind the user interface.
+It processes the button clicks from the frontend and sends the resulting label to labeling.py.
+After that, it fetches the new videos from the designated uploads folder.
+It also checks whether labeling is complete and, if so, terminates the Flask thread.
+
+If human feedback is desired, labeling.py creates a folder for uploading videos in preference_elicitation(). It checks to make sure that the folder is empty and, if not, empties it.
+After that, the videos for the two current segments are recorded in record_segments.py. To do this, the segments are split into their individual observations and actions, which are then executed step by step and recorded. When this is complete and the two videos are in the uploads folder, app.py is notified.
+As soon as the frontend displays the videos, a human can label them. The label is stored in a tuple in the backend and a boolean variable is set when a new label becomes available. As soon as this boolean variable is True, labeling.py fetches the label from app.py and get_labeled_data() appends it to the labeled_data list so that the reward models can be trained with it.
+
+Incomplete sequence diagram of the process:
+![Incomplete sequence diagram of the process](/readme_images/SequenzUI.png)
+
+### Results
+TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow):
+![TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow)](/readme_images/Result.png)
+
+
 ## Results
 ## Additional Infos
 ### Data collection examples
