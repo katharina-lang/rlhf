@@ -68,15 +68,17 @@ If validation data is provided, the function computes the validation loss for ea
 
 ## Client Server Structure
 ## Results
+
+
 ## Additional Infos
 ### Data collection examples
-For the following examples the number of environments is also two.
-#### environment reward
-The data gets collected and reshaped immediately, so we can use the same procedure as for the observation_action pairs.
+The number of environments for the following examples is two.
+#### Environment reward
+The data is collected and reshaped immediately, so we can use the same procedure as for the observation-action pairs.
 
 ![env-reward-start](/readme_images/env_reward/env_start.png)
 
-Then the reshaped data gets stacked on top of each other.
+Then the reshaped data is stacked.
 
 ![env-reward-stack](/readme_images/env_reward/env_stack.png)
 
@@ -84,8 +86,8 @@ At last, the reshape process flattens the array so that the rewards are concaten
 
 ![env-reward-output](/readme_images/env_reward/env_output.png)
 
-#### predicted reward
-The difference here is, that the data is saved as a tensor instead of a numpy array. The rest is analogue again.
+#### Predicted reward
+The difference here is that the data is saved as a tensor instead of a numpy array. The rest is analogous.
 
 ![pred-reward-start](/readme_images/pred_reward/pred_start.png)
 
