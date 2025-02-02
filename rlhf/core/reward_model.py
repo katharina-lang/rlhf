@@ -7,13 +7,16 @@ import random
 class RewardModel(nn.Module):
     def __init__(self, input_dim, hidden_dim=64, dropout_p=0.3):
         super(RewardModel, self).__init__()
+        self.dropout_p = dropout_p
+        self.dropout1 = nn.Dropout(self.dropout_p)
+        self.dropout2 = nn.Dropout(self.dropout_p)
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(dropout_p),
+            self.dropout1,
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(dropout_p),
+            self.dropout2,
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1),
@@ -22,6 +25,12 @@ class RewardModel(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+    def set_dropout(self, new_p):
+        """Update Dropout probability"""
+        self.dropout_p = new_p
+        self.dropout1.p = new_p
+        self.dropout2.p = new_p
 
 
 def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
@@ -88,6 +97,8 @@ def train_reward_model_ensemble(
     batch_size=64,
     writer=None,
     global_step=0,
+    anneal_dropout=False,
+    default_dropout=0.3,
 ):
     """
     Train a list (ensemble) of reward models with mini-batches.
@@ -176,6 +187,15 @@ def train_reward_model_ensemble(
             val_loss = compute_reward_model_loss(
                 model, val_data, device, batch_size=batch_size
             )
+
+            if (
+                anneal_dropout
+                and (val_loss / len(val_data) / (total_train_loss / len(train_pairs)))
+                > 1.8
+            ):
+                model.set_dropout(min(model.dropout_p + 0.05, 0.5))
+            elif anneal_dropout:
+                model.set_dropout(default_dropout)
 
             # Log the training and validation losses
             if writer is not None:

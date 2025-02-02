@@ -85,3 +85,5 @@ class Args:
     """Segment size for rm training, specifies the number of obs action pairs in a trajectory"""
     batch_size_rm: int = 64
     """batch_size for rm training"""
+    anneal_dp: bool = False
+    """anneals dropout if the validation loss is more then 1.8 times larger then the train loss"""

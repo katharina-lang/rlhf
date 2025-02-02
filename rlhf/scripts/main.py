@@ -91,6 +91,8 @@ def start_rollout_loop(ppo, num_iterations):
             batch_size,
             writer=ppo.writer,
             global_step=ppo.global_step,
+            anneal_dropout=ppo.args.anneal_dp,
+            default_dropout=ppo.args.dropout,
         )
 
         ppo.advantage_calculation()
