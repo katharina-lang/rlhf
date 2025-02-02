@@ -2,6 +2,7 @@ import gymnasium as gym
 import os
 import glob
 import time
+import imageio
 
 
 def record_video_for_segment(env_id, segment, video_folder, segment_id, iteration):
@@ -15,28 +16,48 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
     os.makedirs(iteration_folder, exist_ok=True)
 
     # Passe den RecordVideo-Wrapper an, um Videos eindeutig zu benennen
-    env = gym.wrappers.RecordVideo(
-        gym.make(env_id, render_mode="rgb_array"),
-        video_folder=video_folder,
-        name_prefix=f"segment_{segment_id}_iteration_{iteration}",  # Eindeutiger Name für das Video
-    )
+    # env = gym.wrappers.RecordVideo(
+    #     gym.make(env_id, render_mode="rgb_array"),
+    #     video_folder=video_folder,
+    #     name_prefix=f"segment_{segment_id}_iteration_{iteration}",  # Eindeutiger Name für das Video
+    # )
 
+    env = gym.make(env_id, render_mode="rgb_array")
     env.reset()  # Setze die Umgebung zurück (obwohl wir die State-Änderung manuell steuern)
 
+    frames = []
+    obs, _ = env.reset()
     for i in range(len(obs_action)):
         obs = obs_action[i][: env.observation_space.shape[0]]
         action = obs_action[i][env.observation_space.shape[0] :]
+        frame = env.render()
+        frames.append(frame)
 
         # Manuelle Setzung des States in die Umgebung (Wichtig!)
         env.state = obs  # Setze den aktuellen Zustand der Umgebung (bei CartPole ist `state` ein Array)
-
-        # Schritte ausführen (mit gespeicherter Action)
         obs, _, done, truncated, _ = env.step(action)
-
         if done or truncated:
-            break
+            obs, _ = env.reset()
+
+    name_prefix = f"segment_{segment_id}_iteration_{iteration}.mp4"
+    video_path = os.path.join(video_folder, name_prefix)
+    imageio.mimsave(video_path, frames, fps=20)
 
     env.close()
+    # for i in range(len(obs_action)):
+    #     obs = obs_action[i][: env.observation_space.shape[0]]
+    #     action = obs_action[i][env.observation_space.shape[0] :]
+
+    #     # Manuelle Setzung des States in die Umgebung (Wichtig!)
+    #     env.state = obs  # Setze den aktuellen Zustand der Umgebung (bei CartPole ist `state` ein Array)
+
+    #     # Schritte ausführen (mit gespeicherter Action)
+    #     obs, _, done, truncated, _ = env.step(action)
+
+    #     if done or truncated:
+    #         break
+
+    # env.close()
 
     """
     # Umbenennen des Videos, um `episode_0` zu entfernen
