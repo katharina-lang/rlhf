@@ -49,9 +49,11 @@ The same process applies to the predicted and environment rewards, with slight m
 After the data collection is completed, the collected data has to be labeled for feedback purposes. 
 In every iteration, a labeling instance is created and its function `get_labeled_data` is called. This returns the labeled data in a format similar to the one described in the paper "Deep reinforcement learning from human preferences" by Christiano et al. (https://arxiv.org/pdf/1706.03741).
 By calling `get_labeled_data()`, random segments are selected. A segment is a tuple of the trajectory and the the sum over all environment rewards for the corresponding observation-action pairs (env_reward).
-We extract the amount of segments from the randomly selected segments that we want our human or synthetic feedback supplier to label during the labling process. Per default, an uncertainty-based method is used, but it is also possible to randomly select these pairs.
-For the uncertainty-based approach, every reward model (there is an ensemble if wanted, more about this in [Reward Model Training](#reward-model-training)) predicts the reward for the trajectories. The sum is taken and the preference per model is saved. From these preferences, the variance is computed and saved. The labeled pairs with the highest variance are returned and we exit the labeling process and continue in `main.py`.
-The return value is an array of triplets which each looks like the following: (trajectory1, trajectory2, (label1, label2)). A trajectory consists of n observation-action pairs (n = segment_size).
+We extract the amount of segments from the randomly selected segments that we want our human or synthetic feedback supplier to label during the labling process. Per default, an uncertainty-based method is used, but it is also possible to randomly select these pairs by setting the corresponding flag.
+For the uncertainty-based approach, a reward model ensemble (more about this in [Reward Model Training](#reward-model-training)) predicts the rewards for the segments. The sum of predicted rewards for each segment is taken and the preference per model is saved. From these preferences, the variance is computed. The pairs with the highest variance are returned. 
+The actual labeling process is set to work by calling the function `preference_elicitation` which provides the selected segments to either a human or a synthetic labeler for feedback.
+We exit the labeling process and continue in `main.py`.
+The return value at the end of the data labeling process is an array of triplets which each looks like the following: (segment1, segment2, (label1, label2)).
 
 
 ### Reward Model Training
