@@ -100,8 +100,8 @@ class Labeling:
                     time.sleep(0.1)
 
                 if button_set:
-                    segment_obs_actionOne, _, predicted_rewardOne = segment_one
-                    segment_obs_actionTwo, _, predicted_rewardTwo = segment_two
+                    segment_obs_actionOne, _ = segment_one
+                    segment_obs_actionTwo, _ = segment_two
                     labelOne, labelTwo = button_status
 
                     button_set = False
@@ -117,12 +117,7 @@ class Labeling:
                 print(f"Fehler bei der Verbindung zum Flask-Server: {e}")
                 time.sleep(0.1)
 
-        return (
-            segment_obs_actionOne,
-            segment_obs_actionTwo,
-            (labelOne, labelTwo),
-            (predicted_rewardOne, predicted_rewardTwo),
-        )
+        return (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo))
 
     def pairs_by_variance(self, segments, reward_models, queries: int):
         """
