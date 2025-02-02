@@ -21,13 +21,10 @@ def start_rollout_loop(ppo, num_iterations):
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
-    segment_size = 60
+    segment_size = ppo.args.segment_size
 
     total_queries = ppo.args.num_queries
-
     queries_trained = 0
-    # ich habe num_iterations und queries
-    # ich will x queries per iteration (mind 3)
     queries_per_iter = max((total_queries // num_iterations) + 1, 3)
 
     train_data = []
@@ -77,7 +74,7 @@ def start_rollout_loop(ppo, num_iterations):
                 random.shuffle(labeled_data)
                 train_data.extend(labeled_data)
 
-        batch_size = 64
+        batch_size = ppo.args.batch_size_rm
 
         dataset_size = 5
         if len(train_data) > batch_size * dataset_size:
@@ -149,26 +146,28 @@ if __name__ == "__main__":
     ppo = PPO(run_name, args, test_data=False)
 
     if ppo.args.unsupervised_pretraining:
-            print("Entered Unsupervised Pre-Training.")
-            num_pt_iterations = int(0.01 * args.num_iterations)
-            for pt_iteration in range(num_pt_iterations):
-                ppo.collect_rollout_data(unsupervised_pretraining=True)
-                avg_intrinsic_reward = torch.mean(ppo.rewards).item()
-                print(f"Average Intrinsic Reward (Iteration {pt_iteration + 1}): {avg_intrinsic_reward}")
+        print("Entered Unsupervised Pre-Training.")
+        num_pt_iterations = int(0.01 * args.num_iterations)
+        for pt_iteration in range(num_pt_iterations):
+            ppo.collect_rollout_data(unsupervised_pretraining=True)
+            avg_intrinsic_reward = torch.mean(ppo.rewards).item()
+            print(
+                f"Average Intrinsic Reward (Iteration {pt_iteration + 1}): {avg_intrinsic_reward}"
+            )
 
-                ppo.advantage_calculation()
+            ppo.advantage_calculation()
 
-                ppo.agent.optimize_agent_and_critic(
-                    ppo.obs,
-                    ppo.actions,
-                    ppo.logprobs,
-                    ppo.advantages,
-                    ppo.returns,
-                    ppo.values,
-                    ppo.optimizer,
-                    ppo.args,
-                )
-            print("Left Unsupervised Pre-Training.")
+            ppo.agent.optimize_agent_and_critic(
+                ppo.obs,
+                ppo.actions,
+                ppo.logprobs,
+                ppo.advantages,
+                ppo.returns,
+                ppo.values,
+                ppo.optimizer,
+                ppo.args,
+            )
+        print("Left Unsupervised Pre-Training.")
 
     # Start the rollout loop
     start_rollout_loop(ppo, args.num_iterations)

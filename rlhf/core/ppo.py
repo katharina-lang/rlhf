@@ -10,7 +10,7 @@ from rlhf.core.reward_model import RewardModel
 from rlhf.core.ppo_setup import PPOSetup
 from scipy.stats import pearsonr
 import rlhf.core.unsupervised_pt as up
-from rlhf.core.unsupervised_pt import compute_intrinsic_reward 
+from rlhf.core.unsupervised_pt import compute_intrinsic_reward
 
 
 class PPO:
@@ -58,7 +58,7 @@ class PPO:
         input_dim = obs_dim + action_dim
 
         self.reward_models = [
-            RewardModel(input_dim=input_dim).to(self.device)
+            RewardModel(input_dim=input_dim, dropout_p=args.dropout).to(self.device)
             for _ in range(args.num_models)
         ]
 
@@ -107,7 +107,9 @@ class PPO:
             )
 
             if unsupervised_pretraining:
-                self.density_model.add_states(self.next_obs.cpu().numpy())  # Add observed states
+                self.density_model.add_states(
+                    self.next_obs.cpu().numpy()
+                )  # Add observed states
                 self.env_reward = torch.tensor(
                     [
                         compute_intrinsic_reward(state, self.density_model)
@@ -139,7 +141,9 @@ class PPO:
                     torch.tensor(self.predicted_reward).to(self.device).view(-1)
                 )
             else:
-                self.rewards[step] = self.env_reward.clone().detach().to(self.device).view(-1)
+                self.rewards[step] = (
+                    self.env_reward.clone().detach().to(self.device).view(-1)
+                )
             self.next_obs, self.next_done = torch.Tensor(next_obs).to(
                 self.device
             ), torch.Tensor(self.next_done).to(self.device)
@@ -217,7 +221,6 @@ class PPO:
                 self.predicted_rewards_buffer = torch.cat(
                     [self.predicted_rewards_buffer, self.predicted_reward], dim=1
                 )
-
 
     def reshape_data(self, unsupervised_pretraining):
         obs_dim = np.prod(self.envs.single_observation_space.shape)

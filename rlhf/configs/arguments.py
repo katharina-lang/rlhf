@@ -33,8 +33,6 @@ class Args:
     ### very important, num envs * num_steps = Rollouts Data trains policy = Batch Size
     num_steps: int = 2048
     """the number of steps to run in each environment per policy rollout"""
-    segment_size: int = 60
-    """Segment size"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks"""
     gamma: float = 0.99
@@ -79,5 +77,11 @@ class Args:
     """if the pairs selected for reward model training are chosen based on disagreement of the reward model"""
     validation: bool = True
     """if we have a validation set/loss or not"""
-    unsupervised_pretraining: bool = True
+    unsupervised_pretraining: bool = False
     """unsupervised pretraining"""
+    dropout: float = 0.3
+    """dropout for rm training"""
+    segment_size: int = 60
+    """Segment size for rm training, specifies the number of obs action pairs in a trajectory"""
+    batch_size_rm: int = 64
+    """batch_size for rm training"""
