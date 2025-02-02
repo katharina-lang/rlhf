@@ -36,7 +36,7 @@ For each step, the collected data is stacked with np.hstack and each row corresp
 
 ![obs-action-buffer](/readme_images/obs_action/pairs_stack.png)
 
-After the agent-environment interaction is finished for the entire iteration, the data arrays are reshaped. The environment's data is concatenated and the original observation-action pairs gare reconstructed.
+After the agent-environment interaction is finished for the entire iteration, the data arrays are reshaped. The environment's data is concatenated and the original observation-action pairs are reconstructed.
 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
