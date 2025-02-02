@@ -22,6 +22,7 @@ The structure of our project can be seen in the file `rlhf/scripts/main.py`. The
 The number of policy updates (num_iterations) is also the number of reward model updates. Data is collected in every iteration. Through ahe agent's interactions with the environment we receive observations as well as their corresponding actions, the environment rewards for each action and our predicted reward. Interaction with the environment is handled through the Singleton PPO which is instantiated in `main.py` and defined in `rlhf.core.ppo.py`.
 The data is then labeled by either a human or a synthetic feedback supplier in order to receive feedback on the actions that were taken. As long as queries are still required, x pairs are labeled (x = max(3, 1+total_queries//num_iterations)). After the labeling process, the reward model is trained and then agent as well as critic are updated.
 
+
 ### Data Collection
 
 Before the start of the training, we create three arrays, one for our observation-action pairs, the environment rewards and the predicted rewards respectively. Throughout the training, each training step adds a new index to each of these arrays so the indices for corresponding steps match between all three arrays. 
@@ -40,16 +41,18 @@ After the agent-environment interaction is finished for the entire iteration, th
 
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
-The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in the section [Data collection examples](#data-collection-examples).
-
+The same process applies to the predicted and environment rewards, with slight modifications. This ensures that each index now aligns across all arrays. The corresponding examples for the environment and predicted reward are provided in the [Data collection examples](#data-collection-examples) section.
 
 
 ### Data Labeling
-Every iteration, a Labeling instance is created, and it's function `get_labeled_data` is called. This returns the labeled data in a format similar to the one in the paper "Deep reinforcement learning from human preferences".
-An array of triplets is returned here. One triplet looks like the following: (trajectory1, trajectory2, (label1, label2)). A trajectory consists of n observation action pairs (n=segment_size).
-Through `get_labeled_data()` random segments get selected and a segment is a tuple of the trajectory and the env_reward. The environment reward is the sum over all env_rewards for the corresponding observation action pairs.
-After segment selection, the wanted number of labeled pairs is created. Per default, an uncertainty-based method is used, but it is also possible to randomly select these pairs.
+
+After the data collection is completed, the collected data has to be labeled for feedback purposes. 
+In every iteration, a labeling instance is created and its function `get_labeled_data` is called. This returns the labeled data in a format similar to the one described in the paper "Deep reinforcement learning from human preferences" by Christiano et al. (https://arxiv.org/pdf/1706.03741).
+By calling `get_labeled_data()`, random segments are selected. A segment is a tuple of the trajectory and the the sum over all environment rewards for the corresponding observation-action pairs (env_reward).
+We extract the amount of segments from the randomly selected segments that we want our human or synthetic feedback supplier to label during the labling process. Per default, an uncertainty-based method is used, but it is also possible to randomly select these pairs.
 For the uncertainty-based approach, every reward model (there is an ensemble if wanted, more about this in [Reward Model Training](#reward-model-training)) predicts the reward for the trajectories. The sum is taken and the preference per model is saved. From these preferences, the variance is computed and saved. The labeled pairs with the highest variance are returned and we exit the labeling process and continue in `main.py`.
+The return value is an array of triplets which each looks like the following: (trajectory1, trajectory2, (label1, label2)). A trajectory consists of n observation-action pairs (n = segment_size).
+
 
 ### Reward Model Training
 
@@ -57,6 +60,7 @@ The reward model is a simple feedforward neural network with 4 fully connected l
 
 The `train_reward_model_ensemble` function (called in `main.py`) is responsible for training an ensemble of reward models using labeled data. Each model is trained independently with its corresponding optimizer. The function supports mini-batch training, validation, and logging with TensorBoard. First, the function shuffles the labeled_data at the beginning of each epoch to ensure stochasticity in training. Then, the data is divided into mini-batches of size `batch_size_rm`. Each reward model in the ensemble is trained independently. To further increase training diversity, the order of the mini-batches is shuffled for each model. During the training process, for each mini-batch, the labeled observation-action pairs are passed through the model in a forward pass, where both segments in each pair are evaluated to predict their respective rewards. The cross-entropy loss is then computed by comparing the predicted probabilities with the true labels. This loss is backpropagated, and the optimizer updates the model’s parameters to minimize the loss.
 If validation data (`val_data`) is provided, the function computes the validation loss for each model at the end of every epoch using the compute_reward_model_loss function. We do this to detect potential overfitting. The training and validation losses are logged using a TensorBoard writer, enabling the visualization of the training process and facilitating debugging or optimization. Once the training process is complete, all updated reward models in the ensemble are used later.
+
 
 ### Pretraining
 
