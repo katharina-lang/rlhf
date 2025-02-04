@@ -74,6 +74,8 @@ The human labels the two displayed videos using buttons, indicating which or if 
 The user interface is designed the following way:
 ![User interface](/readme_images/UI.png)
 
+For more detailed information, see: [Client-Server Architecture](rlhf/utils/readme.md#Client-Server Architecture)
+
 ### Results
 TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow):
 ![TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow)](/readme_images/Result.png)
