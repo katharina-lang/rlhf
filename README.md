@@ -7,7 +7,7 @@
 - [Data Labeling](#data-labeling)
 - [Reward Model Training](#reward-model-training)
 - [Pretraining](#pretraining)
-- [Client Server Structure](#client-server-structure)
+- [Client-Server Architecture](#client-server-architecture)
 - [Results](#results)
 - [Additional Infos](#additional-infos)
 
@@ -66,7 +66,19 @@ If validation data is provided, the function computes the validation loss for ea
 
 ### Pretraining
 
-## Client Server Structure
+## Client-Server Architecture
+### Overview
+We developed our UI as a Client-Server Architecture with a Flask backend and embedded the frontend directly in it. <br>
+Our UI includes the frontend index.html and the backend app.py, which communicates with labeling.py. In main, app.py is started as a thread on a free port found in the backend as soon as human feedback is expected. Then the user can click on the link to the port in the terminal to open the labeling page. <br>
+The human labels the two displayed videos using buttons, indicating which or if one looks more like the desired behavior. <br>
+The user interface is designed the following way:
+![User interface](/readme_images/UI.png)
+
+### Results
+TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow):
+![TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow)](/readme_images/Result.png)
+
+
 ## Results
 
 
