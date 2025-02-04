@@ -75,7 +75,7 @@ The user interface is designed the following way:
 ![User interface](/readme_images/UI.png)
 
 For more detailed information, see: 
-- [Client-Server Architecture](./rlhf/utils/README.md#Client-Server Architecture)
+- [Client-Server Architecture](./rlhf/utils/README.md)
 
 ### Results
 TensorBoard statistics for HalfCheetah with human feedback (pink) and with synthetic feedback (yellow):
