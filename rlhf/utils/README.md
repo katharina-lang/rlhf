@@ -1,6 +1,4 @@
-# User Interface Documentation
-
-- [Structure](#structure)
+# Client-Server Architecture
 
 ## Structure
 
@@ -21,4 +19,4 @@ As soon as the frontend displays the videos, a human can label them. The label i
 
 Incomplete sequence diagram of the process:
 
-![Incomplete sequence diagram of the process](rlhf/readme_images/SequenzUI.png)
+![Incomplete sequence diagram of the process](../readme_images/SequenzUI.png)
