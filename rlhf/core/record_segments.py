@@ -34,6 +34,7 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
         frames.append(frame)
 
         # Manuelle Setzung des States in die Umgebung (Wichtig!)
+
         env.state = obs  # Setze den aktuellen Zustand der Umgebung (bei CartPole ist `state` ein Array)
         obs, _, done, truncated, _ = env.step(action)
         if done or truncated:

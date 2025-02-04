@@ -74,26 +74,26 @@ def start_rollout_loop(ppo, num_iterations):
                 random.shuffle(labeled_data)
                 train_data.extend(labeled_data)
 
-        batch_size = ppo.args.batch_size_rm
+            batch_size = ppo.args.batch_size_rm
 
-        dataset_size = 5
-        if len(train_data) > batch_size * dataset_size:
-            tmp_train_data = train_data[-batch_size * dataset_size :]
-        else:
-            tmp_train_data = train_data
+            dataset_size = 5
+            if len(train_data) > batch_size * dataset_size:
+                tmp_train_data = train_data[-batch_size * dataset_size :]
+            else:
+                tmp_train_data = train_data
 
-        train_reward_model_ensemble(
-            ppo.reward_models,
-            ppo.optimizers,
-            tmp_train_data,
-            val_data,
-            ppo.device,
-            batch_size,
-            writer=ppo.writer,
-            global_step=ppo.global_step,
-            anneal_dropout=ppo.args.anneal_dp,
-            default_dropout=ppo.args.dropout,
-        )
+            train_reward_model_ensemble(
+                ppo.reward_models,
+                ppo.optimizers,
+                tmp_train_data,
+                val_data,
+                ppo.device,
+                batch_size,
+                writer=ppo.writer,
+                global_step=ppo.global_step,
+                anneal_dropout=ppo.args.anneal_dp,
+                default_dropout=ppo.args.dropout,
+            )
 
         ppo.advantage_calculation()
 
