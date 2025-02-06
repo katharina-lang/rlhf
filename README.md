@@ -1,9 +1,6 @@
 <p align="center">
   <img src="Brain Tech (4).png" alt="Projekt-Logo" width="500">
 </p>
-
-
-
 # RLHF: Deep Reinforcement Learning with Human Feedback
 
 ## Overview
