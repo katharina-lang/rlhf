@@ -44,7 +44,6 @@ def start_rollout_loop(ppo, num_iterations):
             total_queries -= queries
             queries_trained += queries
 
-            Labeling.counter = 0
             if args.synthetic == False:
                 global flask_port
                 if flask_port is None:  # Falls Flask noch nicht gestartet ist

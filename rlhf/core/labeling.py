@@ -20,7 +20,7 @@ class Labeling:
     def __init__(
         self, segment_size, synthetic, uncertainty_based, flask_port=None, test=False
     ):
-        counter = 0
+        self.counter = 0
         self.segment_size = segment_size
         self.test = test
         self.synthetic = synthetic
