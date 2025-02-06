@@ -1,4 +1,4 @@
-<img src="logo.png" alt="Projekt-Logo" width="300">
+<img src="Logo.png" alt="Projekt-Logo" width="300">
 
 
 # RLHF: Deep Reinforcement Learning with Human Feedback
