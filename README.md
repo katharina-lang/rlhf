@@ -1,7 +1,6 @@
 <p align="center" style="margin-top: -20px; margin-bottom: -100px;">
   <img src="Brain Tech (4).png" alt="Projekt-Logo" width="700">
 </p>
-
 ## Overview
 
 This project is a reimplementation of the paper "Deep Reinforcement Learning from Human Preferences" (Christiano et al., 2017). Our goal is to replicate and explore Reinforcement Learning from Human Feedback (RLHF) using a modularized training setup and incorporating synthetic and human feedback for reward modeling.
