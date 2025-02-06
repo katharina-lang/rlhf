@@ -1,7 +1,6 @@
-<p align="center" style="margin-top: -20px;">
+<p align="center" style="margin-top: -20px; margin-bottom: -50px;">
   <img src="Brain Tech (4).png" alt="Projekt-Logo" width="700">
 </p>
-
 
 ## Overview
 
