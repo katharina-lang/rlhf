@@ -1,4 +1,6 @@
-# RLHF: Deep Reinforcement Learning from Human Preferences
+<img src="Dokumente/Uni/3. Semester/Projekt/Brain Tech.gif" alt="Projekt-Logo" width="300">
+
+# RLHF: Deep Reinforcement Learning with Human Feedback
 
 ## Overview
 
