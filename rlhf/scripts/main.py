@@ -41,7 +41,7 @@ def start_rollout_loop(ppo, num_iterations):
         if total_queries > 0:
             queries = min(queries_per_iter, total_queries)
 
-            total_queries -= queries_per_iter
+            total_queries -= queries
             queries_trained += queries
 
             Labeling.counter = 0

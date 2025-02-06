@@ -10,6 +10,13 @@ from rlhf.core.record_segments import record_video_for_segment
 
 
 class Labeling:
+    """
+    Handles the process of labeling trajectory segments for reward model training
+
+    This class manages preference elicitation, segment selection and uncertainty-based labeling,
+    integrating a Flask-based interface for human feedback.
+    """
+
     def __init__(
         self, segment_size, synthetic, uncertainty_based, flask_port=None, test=False
     ):
@@ -22,7 +29,19 @@ class Labeling:
 
     def preference_elicitation(self, segment_one, segment_two, env_id, iteration):
         """
-        Vergleicht zwei Segmente und erstellt Labels für die Belohnungen.
+        Compares two trajectory segments and assigns preference labels.
+
+        If `synthetic` is True, preference labels are assigned based on reward values.
+        Otherwise, a Flask-based interface is used for human preference elicitation.
+
+        Args:
+            segment_one (tuple): First segment containing (obs_action_pairs, true_reward).
+            segment_two (tuple): Second segment containing (obs_action_pairs, true_reward).
+            env_id (str): Environment identifier.
+            iteration (int): Training iteration index.
+
+        Returns:
+            tuple: (obs_action_pairs_1, obs_action_pairs_2, (label_1, label_2))
         """
         segment_obs_actionOne, true_rewardOne = segment_one
         segment_obs_actionTwo, true_rewardTwo = segment_two
@@ -48,10 +67,8 @@ class Labeling:
         upload_dir = os.path.join(base_dir, "uploads")
         base_url = f"http://127.0.0.1:{self.flask_port}"
 
-        # Verzeichnisse erstellen, falls sie nicht existieren
         os.makedirs(upload_dir, exist_ok=True)
 
-        # Verzeichnisse leeren
         def clear_directory(directory):
             if os.path.exists(directory):
                 for file in os.listdir(directory):
@@ -121,10 +138,15 @@ class Labeling:
 
     def pairs_by_variance(self, segments, reward_models, queries: int):
         """
-        Returns a list of tuples
-        A tuple consists of (pair, variance) and the list is sorted by variance (in deacreasing order)
-        A pair consists of two segments
-        A segment consists of (segment_obs_action, env_reward)
+        Selects segment pairs based on reward model prediction variance.
+
+        Args:
+            segments (list): List of available segments.
+            reward_models (list): List of reward models.
+            queries (int): Number of segment pairs to return.
+
+        Returns:
+            list: List of (segment_pair, variance), sorted in descending order of variance.
         """
         pairs_with_variance = []
         for _ in range(queries * 4):
@@ -161,8 +183,18 @@ class Labeling:
         iteration,
     ):
         """
-        Vergleicht Segmente paarweise und erstellt die gelabelten Daten.
-        queries ist die Anzahl der der trajektorien paare die in diesem durchlauf aufgenommen werden sollen
+        Labels trajectory segments based on human or synthetic preference elicitation.
+
+        Args:
+            obs_action_pair_buffer (list): Buffer of observation-action pairs.
+            env_reward_buffer (list): Buffer of environment rewards.
+            reward_models (list): List of trained reward models.
+            queries (int): Number of segment pairs to label.
+            env_id (str): Environment identifier.
+            iteration (int): Training iteration index.
+
+        Returns:
+            list: Labeled trajectory triplets.
         """
 
         segments = self.select_segments(
@@ -201,11 +233,15 @@ class Labeling:
         queries,
     ):
         """
-        Wählt zufällige Segmente aus den Buffern aus und berechnet deren Belohnungen.
-        Gibt eine Liste von segmenten zurück
-        Ein segment besteht hierbei aus einer trajektorie, dem enviroment reward und dem predicted reward
-        Eine trajektorie setzt sich aus mehreren observation, action paaren zusammen
-        Die rewards sind Zahlen
+        Selects random trajectory segments from the buffer.
+
+        Args:
+            obs_action_pair_buffer (list): Buffer of observation-action pairs.
+            env_reward_buffer (list): Buffer of environment rewards.
+            queries (int): Number of segment pairs to extract.
+
+        Returns:
+            list: Selected trajectory segments.
         """
         obs_action_pair_buffer = np.array(obs_action_pair_buffer)
         env_reward_buffer = np.array(env_reward_buffer)

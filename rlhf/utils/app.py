@@ -5,6 +5,7 @@ import threading
 import signal
 import socket
 from rlhf.configs.arguments import Args
+import tyro
 
 # import logging
 
@@ -15,6 +16,8 @@ from rlhf.configs.arguments import Args
 app_should_stop = False
 flask_port = None
 preferences_labeled = 0
+args = tyro.cli(Args)
+num_queries = args.num_queries
 
 app = Flask(__name__)
 
@@ -48,10 +51,10 @@ def stop_app():
 def monitor_app():
     global app_should_stop, preferences_labeled
     while not app_should_stop:
-        if preferences_labeled >= Args.num_queries:
+        if preferences_labeled >= num_queries:
             # Wartezeit, damit das Frontend die Erfolgsmeldung anzeigen kann
             time.sleep(1)
-            os.kill(os.getpid(), signal.SIGINT)
+            app_should_stop = True
             break
         time.sleep(0.1)
 
@@ -68,7 +71,6 @@ def button_action():
     global button_set
     global preferences_labeled
     action = request.json.get("action")
-    # Label erstellen
     if action == "left":
         button_status = (1, 0)
         button_set = True
@@ -84,7 +86,7 @@ def button_action():
     else:
         return jsonify({"error": "Ungültige Aktion"}), 400
     if action in ["left", "right", "equal", "none"]:
-        preferences_labeled += 1  # Präferenz wurde erfolgreich gelabelt
+        preferences_labeled += 1
         button_set = True
 
     # neue Videos laden
@@ -170,7 +172,7 @@ def uploaded_file(filename):
 def is_labeling_complete():
     """Prüft, ob das Labeln abgeschlossen ist."""
     global preferences_labeled
-    if preferences_labeled >= Args.num_queries:
+    if preferences_labeled >= num_queries:
         return jsonify({"complete": True})
     return jsonify({"complete": False})
 
