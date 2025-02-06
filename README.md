@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Logo.png" alt="Projekt-Logo" width="500">
+  <img src="Bain Tech (4).png" alt="Projekt-Logo" width="500">
 </p>
 
 
