@@ -7,11 +7,21 @@ class KNNDensityModel:
         self.state_buffer = []  # Buffer to store observed states
 
     def add_states(self, states):
-        """Add states to the buffer for kNN computation."""
+        """
+        Adds states to the buffer for kNN computation.
+
+        Args: 
+            states: List of states that were reached in the last step by each environment.        
+        """
         self.state_buffer.extend(states)
 
     def compute_density(self, states):
-        """Estimate state densities using kNN distances."""
+        """
+        Estimates state densities using kNN distances.
+        
+        Args:
+            states: List of states that were reached in the last step by each environment.
+        """
         if len(self.state_buffer) < self.k:
             return np.zeros(len(states))  # Avoid division by zero
 
@@ -27,7 +37,12 @@ class KNNDensityModel:
         return densities
 
 def compute_intrinsic_reward(state, density_model):
-    """Compute intrinsic reward based on kNN density estimation."""
+    """
+    Computes intrinsic reward based on kNN density estimation.
+    
+    Args:
+        density_model: Object that has k and the current state buffer as attributes. 
+    """
     state = state.reshape(1, -1)  # Ensure state has the correct shape
     density = density_model.compute_density(state)[0]
 
