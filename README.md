@@ -9,9 +9,8 @@ By integrating both synthetic and human feedback for reward modeling, our framew
 
 
 
-
-|---------------|---------------|---------------|
-| ![](HU-ezgif.com-crop.gif) | ![](Spider-ezgif.com-crop.gif)| ![](Cheetah-ezgif.com-crop.gif) |
+| ![](HU-ezgif.com-crop.gif) | ![](Spider-ezgif.com-crop.gif) | ![](Cheetah-ezgif.com-crop.gif) |
+|----------------------------|-------------------------------|-------------------------------|
 
 
 
