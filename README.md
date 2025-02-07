@@ -1,5 +1,5 @@
 <p align="center" style="margin-top: -20px;"> 
-  <img src="readme_images/Brain Tech (3).png" alt="Projekt-Logo" width="700">
+  <img src="documents/Brain Tech (3).png" alt="Projekt-Logo" width="700">
 </p>
 
 ## Overview
@@ -9,7 +9,7 @@ By integrating both synthetic and human feedback for reward modeling, our framew
 
 
 
-| ![](readme_images/HU-ezgif.com-crop.gif) | ![](readme_images/Spider-ezgif.com-crop.gif) | ![](readme_images/Cheetah-ezgif.com-crop.gif) |
+| ![](documents/HU-ezgif.com-crop.gif) | ![](documents/Spider-ezgif.com-crop.gif) | ![](documents/Cheetah-ezgif.com-crop.gif) |
 |----------------------------|-------------------------------|-------------------------------|
 
 
@@ -54,7 +54,7 @@ Comparison of a few environments can be seen here:
 
 Humanoid Standup with all CleanRl default parameters:
 
-<img src="./readme_images/stats/episodicRHs.png" alt="Humanoid Standup - Episodic RHs" width="350" height="350">
+<img src="./documents/stats/episodicRHs.png" alt="Humanoid Standup - Episodic RHs" width="350" height="350">
 
 ## Learn more
-For a deep dive into our code, please see the file [walkthrough](./walkthrough.md).
+For a deep dive into our code, please see the file [walkthrough](./documents/walkthrough.md).
