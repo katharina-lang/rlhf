@@ -6,11 +6,7 @@ import signal
 import socket
 from rlhf.configs.arguments import Args
 import tyro
-
-# import logging
-
-# log = logging.getLogger("werkzeug")
-# log.setLevel(logging.ERROR)
+import logging
 
 
 app_should_stop = False
@@ -20,6 +16,9 @@ args = tyro.cli(Args)
 num_queries = args.num_queries
 
 app = Flask(__name__)
+
+log = logging.getLogger("werkzeug")
+log.setLevel(logging.ERROR)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
@@ -103,7 +102,7 @@ def button_action():
 
     video_paths.append(f"/uploads/{videos[0]}")
     video_paths.append(f"/uploads/{videos[1]}")
-    return jsonify({"status": button_status, "set": button_set, "videos": video_paths})
+    return jsonify({"button_status": button_status, "set": button_set, "videos": video_paths, "status": (preferences_labeled)})
 
 
 # Videos an frontend senden
