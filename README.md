@@ -9,10 +9,9 @@ By integrating both synthetic and human feedback for reward modeling, our framew
 
 
 
-https://github.com/user-attachments/assets/56a07f7e-580f-49e6-b700-45bcb90dda22
-
-
-https://github.com/user-attachments/assets/17e34f8b-6143-4d8e-b684-129e7fff1f61
+| Environment 1  | Environment 2  | Environment 3  |
+|---------------|---------------|---------------|
+| ![](HU.gif) | ![](Spider.gif) | ![](Cheetah.gif) |
 
 
 
