@@ -42,5 +42,5 @@ All possible flags to set are in the [arguments](./rlhf/configs/arguments.py) fi
 ## Results
 Comparison of a few environments can be seen here:
 
-## Code Walkthrough
-A code walkthrough is provided in the file [walkthrough](./walkthrough.md)
+## Learn more
+For a deep dive into our code, please see the file [walkthrough](./walkthrough.md)
