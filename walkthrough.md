@@ -8,7 +8,7 @@
   - [Data Collection](#data-collection)
   - [Data Labeling](#data-labeling)
   - [Reward Model Training](#reward-model-training)
-  - [Pretraining](#pretraining)
+  - [Unsupervised pretraining](#pretraining)
 - [Client-Server Architecture](#client-server-architecture)
   - [Overview](#overview-1)
 - [Results](#results)
@@ -109,9 +109,9 @@ The reward model is a feedforward neural network with:
 
 ---
 
-### Pretraining
+### Unsupervised pretraining
 
-TBD
+The overall goal of unsupervised pretraining is to train the policy to explore the environment as much as possible before the actual training process. This leads to the agent showing more diverse behavior due to increased entropy. We use 1% of the overall iterations for pretraining as indicated in the Pebble paper (Lee et al., 2021). The intrinsic rewards are computed using the k-th nearest neighbor method. This functionality can be found in `unsupervised_pt.py` in the core module. Pretraining can be activated by setting the flag `unsupervised_pretraining`.
 
 ---
 
