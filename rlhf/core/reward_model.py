@@ -5,6 +5,15 @@ import random
 
 # input dim is concatenated state, action
 class RewardModel(nn.Module):
+    """
+    Neural network-based reward model for predicting reward values.
+
+    Args:
+        input_dim (int): The input dimension, consisting of concatenated state and action features.
+        hidden_dim (int, optional): The number of hidden units in the model. Defaults to 64.
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.3.
+    """
+
     def __init__(self, input_dim, hidden_dim=64, dropout_p=0.3):
         super(RewardModel, self).__init__()
         self.dropout_p = dropout_p
@@ -24,68 +33,27 @@ class RewardModel(nn.Module):
         )
 
     def forward(self, x):
+        """
+        Forward pass through the reward model.
+
+        Args:
+            x (torch.Tensor): Input tensor representing the concatenated state and action.
+
+        Returns:
+            torch.Tensor: Predicted reward value.
+        """
         return self.model(x)
 
     def set_dropout(self, new_p):
-        """Update Dropout probability"""
+        """
+        Updates the dropout probability.
+
+        Args:
+            new_p (float): New dropout probability value.
+        """
         self.dropout_p = new_p
         self.dropout1.p = new_p
         self.dropout2.p = new_p
-
-
-def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
-    """
-    Computes total (summed) loss of the given model on 'data_pairs'.
-    data_pairs is a flat list of:
-        (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo)).
-
-    This function does NOT update the model.
-    """
-
-    model.eval()  # eval mode (disables dropout, etc.)
-
-    total_loss = 0.0
-
-    with torch.no_grad():
-        for start in range(0, len(data_pairs), batch_size):
-            batch = data_pairs[start : start + batch_size]
-            batch_loss = 0.0
-
-            for labeled_pair in batch:
-                (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo)) = (
-                    labeled_pair
-                )
-
-                segment_obs_actionOne = torch.tensor(
-                    segment_obs_actionOne, device=device
-                )
-                segment_obs_actionTwo = torch.tensor(
-                    segment_obs_actionTwo, device=device
-                )
-
-                pred_r1 = model(segment_obs_actionOne).sum()
-                pred_r2 = model(segment_obs_actionTwo).sum()
-
-                prob_one = torch.exp(pred_r1) / (
-                    torch.exp(pred_r1) + torch.exp(pred_r2)
-                )
-                prob_two = 1 - prob_one
-
-                labels = torch.tensor(
-                    [labelOne, labelTwo], dtype=torch.float32, device=device
-                )
-
-                pair_loss = -(
-                    labels[0] * torch.log(prob_one + 1e-8)
-                    + labels[1] * torch.log(prob_two + 1e-8)
-                )
-
-                batch_loss += pair_loss.item()
-
-            total_loss += batch_loss
-
-    model.train()
-    return total_loss
 
 
 def train_reward_model_ensemble(
@@ -101,22 +69,20 @@ def train_reward_model_ensemble(
     default_dropout=0.3,
 ):
     """
-    Train a list (ensemble) of reward models with mini-batches.
-    Each model has a separate loss and optimizer.
-    We do an 80/20 split on the labeled pairs for train vs. validation.
+    Trains an ensemble of reward models using labeled trajectory segments.
 
-    reward_models:      list of RewardModel instances
-    reward_optimizers:  list of corresponding torch.optim.Optimizer
-    labeled_data:       list of labeled pairs of the form:
-                                  (
-                                   segment_obs_actionOne,
-                                   segment_obs_actionTwo,
-                                   (labelOne, labelTwo)
-                                   )
-    device:             "cpu" or "cuda"
-    batch_size:         number of pairs in each batch
-    epochs:             how many epochs to train for
-    writer:             optional, a tensorboard SummaryWriter for logging
+    Args:
+        reward_models (list): List of `RewardModel` instances.
+        reward_optimizers (list): List of corresponding `torch.optim.Optimizer` instances.
+        labeled_data (list): List of labeled pairs containing:
+                             (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo)).
+        val_data (list): List of validation data pairs (same structure as labeled_data).
+        device (str): The computation device, either "cpu" or "cuda".
+        batch_size (int, optional): Number of samples per batch. Defaults to 64.
+        writer (torch.utils.tensorboard.SummaryWriter, optional): TensorBoard writer for logging.
+        global_step (int, optional): Global step counter for logging purposes. Defaults to 0.
+        anneal_dropout (bool, optional): Whether to adjust dropout based on validation loss. Defaults to False.
+        default_dropout (float, optional): Default dropout probability. Defaults to 0.3.
     """
 
     train_pairs = labeled_data
@@ -180,8 +146,6 @@ def train_reward_model_ensemble(
             total_train_loss += batch_loss.item()
 
         if val_data:
-            # validation loss verhältnis zu normalen loss 1.1 bis 1.5
-            # dropout während training verändern?
 
             random.shuffle(val_data)
             val_loss = compute_reward_model_loss(
@@ -197,8 +161,7 @@ def train_reward_model_ensemble(
             elif anneal_dropout:
                 model.set_dropout(default_dropout)
 
-            # Log the training and validation losses
-            if writer is not None:
+            if writer is not None and val_data:
                 # Log the *(avg)* training loss, for the global timestep
                 writer.add_scalar(
                     f"Model_{model_idx}/TrainLoss",
@@ -211,9 +174,70 @@ def train_reward_model_ensemble(
                     global_step,
                 )
 
-            print(
-                f"Model {model_idx} "
-                f"=> Train Loss: {total_train_loss/len(train_pairs):.4f}, Val Loss: {val_loss/len(val_data):.4f}"
-            )
+                print(
+                    f"Model {model_idx} "
+                    f"=> Train Loss: {total_train_loss/len(train_pairs):.4f}, Val Loss: {val_loss/len(val_data):.4f}"
+                )
 
     print("All Reward Models updated.")
+
+
+def compute_reward_model_loss(model, data_pairs, device, batch_size=64):
+    """
+    Computes the total loss for a given reward model on labeled trajectory pairs.
+
+    Args:
+        model (RewardModel): The reward model to evaluate.
+        data_pairs (list): List of labeled trajectory pairs:
+                           (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo)).
+        device (str): The computation device, either "cpu" or "cuda".
+        batch_size (int, optional): Number of samples per batch. Defaults to 64.
+
+    Returns:
+        float: The total computed loss over all data pairs.
+    """
+
+    model.eval()  # eval mode (disables dropout, etc.)
+
+    total_loss = 0.0
+
+    with torch.no_grad():
+        for start in range(0, len(data_pairs), batch_size):
+            batch = data_pairs[start : start + batch_size]
+            batch_loss = 0.0
+
+            for labeled_pair in batch:
+                (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo)) = (
+                    labeled_pair
+                )
+
+                segment_obs_actionOne = torch.tensor(
+                    segment_obs_actionOne, device=device
+                )
+                segment_obs_actionTwo = torch.tensor(
+                    segment_obs_actionTwo, device=device
+                )
+
+                pred_r1 = model(segment_obs_actionOne).sum()
+                pred_r2 = model(segment_obs_actionTwo).sum()
+
+                prob_one = torch.exp(pred_r1) / (
+                    torch.exp(pred_r1) + torch.exp(pred_r2)
+                )
+                prob_two = 1 - prob_one
+
+                labels = torch.tensor(
+                    [labelOne, labelTwo], dtype=torch.float32, device=device
+                )
+
+                pair_loss = -(
+                    labels[0] * torch.log(prob_one + 1e-8)
+                    + labels[1] * torch.log(prob_two + 1e-8)
+                )
+
+                batch_loss += pair_loss.item()
+
+            total_loss += batch_loss
+
+    model.train()
+    return total_loss
