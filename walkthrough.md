@@ -19,8 +19,8 @@
 
 ### Overview
 
-The structure of our project can be seen in the file [main.py](./rlhf/scripts/main.py). The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure of their file has remained, but it is now modularized. In our project, we replaced the environment reward - which is used for the agent-and-critic's training - with a reward predictor.
-The number of policy updates (num_iterations) is also the number of reward model updates. Data is collected in every iteration. Through the agent's interactions with the environment we receive observations as well as their corresponding actions, the environment rewards for each action and our predicted reward. Interaction with the environment is handled through the Singleton PPO which is instantiated in [main.py](./rlhf/scripts/main.py) and defined in [ppo.py](./rlhf.core.ppo.py).
+The structure of our project can be seen in the file [main.py](./rlhf/main.py). The agent training has been taken from the CleanRL repository and their file `ppo_continous.py`. The core structure of their file has remained, but it is now modularized. In our project, we replaced the environment reward - which is used for the agent-and-critic's training - with a reward predictor.
+The number of policy updates (num_iterations) is also the number of reward model updates. Data is collected in every iteration. Through the agent's interactions with the environment we receive observations as well as their corresponding actions, the environment rewards for each action and our predicted reward. Interaction with the environment is handled through the Singleton PPO which is instantiated in [main.py](./rlhf/main.py) and defined in [ppo.py](./rlhf.core.ppo.py).
 The data is then labeled by either a human or a synthetic feedback supplier in order to receive feedback on the actions that were taken. As long as queries are still required, x pairs are labeled (x = max(3, 1+total_queries//num_iterations)). After the labeling process, the reward model is trained and then agent as well as critic are updated.
 
 ---
@@ -33,7 +33,7 @@ Before training begins, we create three arrays:
 3. Predicted rewards
 
 Throughout the data collection, each training step adds a new entry to each of these arrays so the indices for corresponding steps match between all three arrays. 
-In order to start our data collection, we call the function `collect_rollout_data` from [ppo.py](./rlhf.core.ppo.py) in [main](./rlhf/scripts/main.py).
+In order to start our data collection, we call the function `collect_rollout_data` from [ppo.py](./rlhf.core.ppo.py) in [main](./rlhf/main.py).
 After the environment interaction and reward prediction, `save_data` saves the collected data into the above-mentioned arrays.
 
 We stack the data first and then reshape it at the end. The following example illustrates the data collection process:
@@ -71,7 +71,7 @@ By calling `get_labeled_data()`, random segments are selected. A segment is a tu
 We extract the amount of segments from the randomly selected segments. Per default, an uncertainty-based method is used, but it is also possible to randomly select these pairs by setting the corresponding flag.
 For the uncertainty-based approach, a reward model ensemble (more about this in [Reward Model Training](#reward-model-training)) predicts the rewards for the segments. The sum of predicted rewards for each segment is taken and the preference per model is saved. From these preferences, the variance is computed. The pairs with the highest variance are returned. 
 The actual labeling process is set to work by calling the function `preference_elicitation` which provides the selected segments to either a human or a synthetic labeler for feedback.
-We exit the labeling process and continue in [main.py](./rlhf/scripts/main.py).
+We exit the labeling process and continue in [main.py](./rlhf/main.py).
 An array of triplets which each looks like the following (segment1, segment2, (label1, label2)) is returned.
 
 
