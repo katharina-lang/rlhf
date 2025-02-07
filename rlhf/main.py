@@ -4,13 +4,12 @@ import numpy as np
 import tyro
 import os
 import shutil
-import threading
 import random
 from rlhf.configs.arguments import Args
 from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
-from rlhf.utils.app import start_flask, flask_port, monitor_app
+from rlhf.utils.app import start_flask, flask_port
 from rlhf.core.record_segments import record_video_for_segment
 
 
@@ -18,7 +17,7 @@ def start_rollout_loop(ppo, num_iterations):
     """
     Starts the main rollout loop for training the agent and the reward model.
 
-    Parameters:
+    Args:
         ppo (PPO): The PPO instance managing the agent and reward model training.
         num_iterations (int): Number of iterations to run the rollout loop.
     """
@@ -52,7 +51,9 @@ def start_rollout_loop(ppo, num_iterations):
                 global flask_port
                 if flask_port is None:  # Falls Flask noch nicht gestartet ist
                     flask_port = start_flask()
-                    print(f"Running on http://127.0.0.1:{flask_port}/ (Press CTRL+C to quit)")
+                    print(
+                        f"Running on http://127.0.0.1:{flask_port}/ (Press CTRL+C to quit)"
+                    )
 
             labeling = Labeling(
                 segment_size,
@@ -121,26 +122,34 @@ def start_rollout_loop(ppo, num_iterations):
 
 
 def clear_uploads_folder(folder_path):
-    """Bereinigt den Ordner `uploads`, indem alle Dateien und Unterordner gelöscht werden."""
+    """
+    Deletes all files and subdirectories within the specified folder.
+    If the folder does not exist, it is created.
+
+    Args:
+        folder_path (str): The path to the folder to be cleared.
+
+    Raises:
+        Exception: If an error occurs while deleting files or directories.
+    """
     if os.path.exists(folder_path):
         for filename in os.listdir(folder_path):
             file_path = os.path.join(folder_path, filename)
             try:
                 if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)  # Datei oder Symlink löschen
+                    os.unlink(file_path)
                 elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)  # Unterordner löschen
+                    shutil.rmtree(file_path)
             except Exception as e:
                 print(f"Fehler beim Löschen von {file_path}: {e}")
     else:
-        # Falls der Ordner nicht existiert, erstelle ihn
         os.makedirs(folder_path)
-        print(f"Ordner {folder_path} wurde erstellt.")
+        print(f"Directory {folder_path} was created.")
 
 
 def save_video(env_id, obs_action, iteration):
     segment = (obs_action, 0)
-    video_folder = "segmentVideos"
+    video_folder = f"segmentVideos_{env_id}"
     record_video_for_segment(env_id, segment, video_folder, 0, iteration)
 
 
@@ -152,10 +161,9 @@ if __name__ == "__main__":
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     uploads_folder = os.path.join(BASE_DIR, "uploads")
 
-    # Ordner bereinigen vor dem Start von Flask
     clear_uploads_folder(uploads_folder)
 
-    ppo = PPO(run_name, args, test_data=False)
+    ppo = PPO(run_name, args)
 
     if ppo.args.unsupervised_pretraining:
         print("Entered Unsupervised Pre-Training.")

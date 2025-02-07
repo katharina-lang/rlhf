@@ -4,8 +4,6 @@ import os
 import shutil
 import requests
 import time
-from threading import Thread
-from rlhf.utils.app import start_flask
 from rlhf.core.record_segments import record_video_for_segment
 
 
@@ -17,12 +15,9 @@ class Labeling:
     integrating a Flask-based interface for human feedback.
     """
 
-    def __init__(
-        self, segment_size, synthetic, uncertainty_based, flask_port=None, test=False
-    ):
+    def __init__(self, segment_size, synthetic, uncertainty_based, flask_port=None):
         self.counter = 0
         self.segment_size = segment_size
-        self.test = test
         self.synthetic = synthetic
         self.uncertainty_based = uncertainty_based
         self.flask_port = flask_port
@@ -58,10 +53,6 @@ class Labeling:
                 labelOne = labelTwo = 0.5
             return (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo))
 
-
-        # Verzeichnisse flexibel erstellen
-        # Basispfad wird dynamisch über abspath bestimmt, Ordner werden mit makedirs erstellt, falls sie nicht existieren
-        # Dateien und Pfade werden mit path.join zusammengesetzt
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         upload_dir = os.path.join(base_dir, "uploads")
         base_url = f"http://127.0.0.1:{self.flask_port}"
@@ -74,9 +65,9 @@ class Labeling:
                     file_path = os.path.join(directory, file)
                     try:
                         if os.path.isfile(file_path) or os.path.islink(file_path):
-                            os.unlink(file_path)  # Dateien löschen
+                            os.unlink(file_path)
                         elif os.path.isdir(file_path):
-                            shutil.rmtree(file_path)  # Unterverzeichnisse löschen
+                            shutil.rmtree(file_path)
                     except Exception as e:
                         print(f"Fehler beim Löschen von {file_path}: {e}")
 
@@ -92,15 +83,12 @@ class Labeling:
         self.counter += 1
 
         videos_ready = True
-        # hier wird jetzt an Flask das Signal gesendet, videos_ready auf True zu setzen, da Videos fertig aufgenommen sind -> können angezeigt werden
         response = requests.post(
             f"{base_url}/setVideosReady", json={"new_value": videos_ready}
         )
 
-        # Äußere Schleife sorgt für eine Wiederholung, falls es beim Abruf der Serverdaten zu einem Fehler kommt
         while True:
             try:
-                # innere Schleife wartet explizit auf einen Button-Status, um Interaktion zu erkennen
                 while True:
                     response = requests.get(f"{base_url}/status")
                     state = response.json()
@@ -110,7 +98,6 @@ class Labeling:
                     state2 = response2.json()
                     button_set = state2["set"]
 
-                    # falls Button gedrückt wurde, weitergehen, sonst darauf warten
                     if button_set:
                         break
                     time.sleep(0.1)
@@ -121,7 +108,6 @@ class Labeling:
                     labelOne, labelTwo = button_status
 
                     button_set = False
-                    # hier wird jetzt an Flask das Signal gesendet, den Button-Set wieder auf False zu setzen
                     response = requests.post(
                         f"{base_url}/set", json={"new_value": button_set}
                     )
@@ -196,8 +182,9 @@ class Labeling:
             list: Labeled trajectory triplets.
         """
 
+        num_segments = queries * 2
         segments = self.select_segments(
-            obs_action_pair_buffer, env_reward_buffer, queries
+            obs_action_pair_buffer, env_reward_buffer, num_segments
         )
 
         labeled_data = []
@@ -229,7 +216,7 @@ class Labeling:
         self,
         obs_action_pair_buffer,
         env_reward_buffer,
-        queries,
+        num_segments,
     ):
         """
         Selects random trajectory segments from the buffer.
@@ -246,11 +233,9 @@ class Labeling:
         env_reward_buffer = np.array(env_reward_buffer)
 
         data_points = len(env_reward_buffer)
-        # doppelt so viele Segmente wie queries, da zu jedem labeled_pair zwei segmente gehören
-        segment_amount = queries * 2
 
         segments = []
-        for _ in range(segment_amount):
+        for _ in range(num_segments):
             start_idx = np.random.randint(0, data_points - self.segment_size)
             end_idx = start_idx + self.segment_size
             segment_obs_action = obs_action_pair_buffer[start_idx:end_idx]
