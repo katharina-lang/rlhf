@@ -36,7 +36,7 @@ A command with flags could look like the following:
 ```bash
 python -m rlhf.scripts.main --num-queries 750 --no-synthetic
 ```
-All possible flags to set are in the [arguments](./rlhf/configs/arguments.py) file.
+All possible flags can be found in the [arguments](./rlhf/configs/arguments.py) file.
 
 ## Results
 Comparison of a few environments can be seen here:
