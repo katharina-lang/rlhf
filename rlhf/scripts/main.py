@@ -48,6 +48,7 @@ def start_rollout_loop(ppo, num_iterations):
                 global flask_port
                 if flask_port is None:  # Falls Flask noch nicht gestartet ist
                     flask_port = start_flask()
+                    print(f"Running on http://127.0.0.1:{flask_port}/ (Press CTRL+C to quit)")
 
             labeling = Labeling(
                 segment_size,

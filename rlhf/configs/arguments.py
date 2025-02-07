@@ -12,9 +12,9 @@ class Args:
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
-    capture_video: bool = False
+    capture_video: bool = True
     """whether to capture videos of the agent performances (check out `videos` folder)"""
-    save_model: bool = False
+    save_model: bool = True
     """whether to save model into the `runs/{run_name}` folder"""
     upload_model: bool = False
     """whether to upload the saved model to huggingface"""
@@ -22,7 +22,7 @@ class Args:
     """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
-    env_id: str = "HalfCheetah-v5"
+    env_id: str = "Pusher-v5"
     """the id of the environment"""
     total_timesteps: int = 1000000
     """total timesteps of the experiments"""
@@ -69,9 +69,9 @@ class Args:
     # custom arguments
     num_models: int = 3
     """the number of reward models in the ensemble"""
-    num_queries: int = 700
+    num_queries: int = 750
     """the number of queries for the labeler"""
-    synthetic: bool = True
+    synthetic: bool = False
     """if a human labels or the environment acts as the synthetic labeler """
     uncertainty_based: bool = True
     """if the pairs selected for reward model training are chosen based on disagreement of the reward model"""

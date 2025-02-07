@@ -96,7 +96,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data.status) {
-                        document.getElementById('status').innerText = `Status: ${data.status}`;
+                        document.getElementById('status').innerText = `Labels done: ${data.status}`;
                     }
                     // Lade Videos neu
                     await loadVideos();
@@ -244,7 +244,7 @@
     </div>
 
     <div id="status-container">
-    <p id="status">Status: (-1, -1)</p>
+    <p id="status">Labels done: 0</p>
     </div>
 </body>
 </html>

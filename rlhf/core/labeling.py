@@ -58,7 +58,6 @@ class Labeling:
                 labelOne = labelTwo = 0.5
             return (segment_obs_actionOne, segment_obs_actionTwo, (labelOne, labelTwo))
 
-        print("Labeling: Flask Port ist: ", self.flask_port)
 
         # Verzeichnisse flexibel erstellen
         # Basispfad wird dynamisch über abspath bestimmt, Ordner werden mit makedirs erstellt, falls sie nicht existieren
