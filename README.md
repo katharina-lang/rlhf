@@ -54,7 +54,7 @@ Comparison of a few environments can be seen here:
 
 Humanoid Standup with all CleanRl default parameters:
 
-<img src="./readme_images/stats/episodicRHs.png" alt="Humanoid Standup - Episodic RHs" width="400" height="300"><img src="./readme_images/stats/pearsonHs.png" alt="Humanoid Standup - Pearson Hs" width="400" height="300">
+<img src="./readme_images/stats/episodicRHs.png" alt="Humanoid Standup - Episodic RHs" width="400" height="350">
 
 ## Learn more
 For a deep dive into our code, please see the file [walkthrough](./walkthrough.md).
