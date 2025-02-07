@@ -57,12 +57,15 @@ Consider two environments, where:
 - Two observation-action pairs are collected.
 
 **Initial state:**
+
 ![obs-action-pair](/readme_images/obs_action/pairs_start.png)
 
 **Stacked data:**
+
 ![obs-action-buffer](/readme_images/obs_action/pairs_stack.png)
 
 **Final reshaped output:**
+
 ![obs-action-output](/readme_images/obs_action/pairs_output.png)
 
 This process applies similarly to predicted and environment rewards. Further examples can be found in [Data Collection Examples](#data-collection-examples).
