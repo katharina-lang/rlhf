@@ -11,7 +11,7 @@ By integrating both synthetic and human feedback for reward modeling, our framew
 
 | Environment 1  | Environment 2  | Environment 3  |
 |---------------|---------------|---------------|
-| ![](HU.gif) | ![](Spider.gif) | ![](Cheetah.gif) |
+| ![](HU-ezgif.com-crop.gif) | ![](Spider.gif) | ![](Cheetah.gif) |
 
 
 
