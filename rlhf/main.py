@@ -49,7 +49,7 @@ def start_rollout_loop(ppo, num_iterations):
 
             if args.synthetic == False:
                 global flask_port
-                if flask_port is None:  # Falls Flask noch nicht gestartet ist
+                if flask_port is None:  # if Flask is not started yet
                     flask_port = start_flask()
                     print(
                         f"Running on http://127.0.0.1:{flask_port}/ (Press CTRL+C to quit)"
