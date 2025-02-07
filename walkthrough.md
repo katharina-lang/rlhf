@@ -8,7 +8,7 @@
   - [Data Collection](#data-collection)
   - [Data Labeling](#data-labeling)
   - [Reward Model Training](#reward-model-training)
-  - [Unsupervised pretraining](#pretraining)
+  - [Unsupervised pretraining](#Unsupervised-pretraining)
 - [Client-Server Architecture](#client-server-architecture)
   - [Overview](#overview-1)
 - [Results](#results)
