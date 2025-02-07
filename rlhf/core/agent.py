@@ -11,6 +11,10 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
+    """
+    Agent copied from CleanRl ppo_continous.py
+    """
+
     def __init__(self, envs):
         super().__init__()
         self.critic = nn.Sequential(
@@ -53,9 +57,10 @@ class Agent(nn.Module):
             probs.entropy().sum(1),
             self.critic(x),
         )
-    
 
-    def optimize_agent_and_critic(self, obs, actions, logprobs, advantages, returns, values, optimizer, args):
+    def optimize_agent_and_critic(
+        self, obs, actions, logprobs, advantages, returns, values, optimizer, args
+    ):
         b_obs = obs.reshape((-1,) + obs.shape[2:])
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + actions.shape[2:])

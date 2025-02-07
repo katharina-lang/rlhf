@@ -1,13 +1,18 @@
 import gymnasium as gym
 import os
-import glob
-import time
 import imageio
 
 
 def record_video_for_segment(env_id, segment, video_folder, segment_id, iteration):
     """
-    Nimmt ein Video für ein bestimmtes Segment auf und speichert es in einem spezifischen Iterationsunterordner.
+    Records a video for a specific segment and saves it in a designated iteration subfolder.
+
+    Args:
+        env_id (str): The ID of the Gym environment to be used for rendering.
+        segment (tuple): A tuple containing the observation-action pairs for the segment.
+        video_folder (str): The directory where the recorded video will be stored.
+        segment_id (int): The identifier for the segment being recorded.
+        iteration (int): The current iteration of the recording process.
     """
     obs_action, _ = segment
 
@@ -15,7 +20,7 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
     os.makedirs(iteration_folder, exist_ok=True)
 
     env = gym.make(env_id, render_mode="rgb_array")
-    env.reset()  # Setze die Umgebung zurück (obwohl wir die State-Änderung manuell steuern)
+    env.reset()
 
     frames = []
     obs, _ = env.reset()
@@ -25,9 +30,7 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
         frame = env.render()
         frames.append(frame)
 
-        # Manuelle Setzung des States in die Umgebung (Wichtig!)
-
-        env.state = obs  # Setze den aktuellen Zustand der Umgebung
+        env.state = obs
         obs, _, done, truncated, _ = env.step(action)
         if done or truncated:
             obs, _ = env.reset()
@@ -37,14 +40,3 @@ def record_video_for_segment(env_id, segment, video_folder, segment_id, iteratio
     imageio.mimsave(video_path, frames, fps=20)
 
     env.close()
-
-    """
-    # Umbenennen des Videos, um `episode_0` zu entfernen
-    video_files = glob.glob(os.path.join(video_folder, f"segment_{segment_id}_iteration_{iteration}-episode-0.mp4"))
-    for video_file in video_files:
-        new_name = os.path.join(video_folder, f"segment_{segment_id}_iteration_{iteration}.mp4")
-        os.rename(video_file, new_name)
-        # Warte, bis die Datei sicher existiert
-        while not os.path.exists(new_name):
-            time.sleep(0.1)
-    """
