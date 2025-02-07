@@ -9,7 +9,7 @@ By integrating both synthetic and human feedback for reward modeling, our framew
 
 
 
-| ![](documents/HU-ezgif.com-crop.gif) | ![](documents/Design ohne Titel (3).gif) | ![](documents/DesignohneTitel2-ezgif.com-crop.gif) |
+| ![](documents/HU-ezgif.com-crop.gif) | ![](documents/Walker.gif) | ![](documents/DesignohneTitel2-ezgif.com-crop.gif) |
 |----------------------------|-------------------------------|-------------------------------|
 
 
