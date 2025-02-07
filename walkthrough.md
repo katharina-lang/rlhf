@@ -151,18 +151,24 @@ Comparison of **HalfCheetah with human feedback (pink) vs. synthetic feedback (y
 
 #### **Environment Reward**
 1. **Collected data (before reshaping):**
+
    ![env-reward-start](/readme_images/env_reward/env_start.png)
 2. **Stacked data:**
+
    ![env-reward-stack](/readme_images/env_reward/env_stack.png)
 3. **Final reshaped output:**
+
    ![env-reward-output](/readme_images/env_reward/env_output.png)
 
 #### **Predicted Reward**
 1. **Collected data:**
+
    ![pred-reward-start](/readme_images/pred_reward/pred_start.png)
 2. **Concatenated representation:**
+
    ![pred-reward-cat](/readme_images/pred_reward/pred_cat.png)
 3. **Final reshaped output:**
+
    ![pred-reward-output](/readme_images/pred_reward/pred_output.png)
 
 ---
