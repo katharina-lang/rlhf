@@ -57,4 +57,4 @@ Humanoid Standup with all CleanRl default parameters:
 <img src="./documents/stats/episodicRHs.png" alt="Humanoid Standup - Episodic RHs" width="350" height="350">
 
 ## Learn more
-For a deep dive into our code, please see the file [walkthrough](./documents/walkthrough.md).
+For a deep dive into our code, please see the file [walkthrough](./walkthrough.md).
