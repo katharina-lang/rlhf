@@ -17,7 +17,7 @@ By integrating both synthetic and human feedback for reward modeling, our framew
 ## Quick Setup
 
 To replicate experiments, clone the repository and install dependencies.
-Use a virtal environment and the python version `3.10`
+Use a virtual environment and the python version `3.10`
 
 ```bash
 python3.10 -m venv venv
@@ -47,7 +47,7 @@ python -m rlhf.main --num-queries 750 --no-synthetic
 All possible flags can be found in the [arguments](./rlhf/configs/arguments.py) file.
 
 If the flag `--no-synthetic` is set, human labeling is required. The system will launch a **Flask** web application where the user labels preferences through an interface in **Google Chrome**.
-To access the labeling interface, open **Google Chrome** and navigate to the adress shown in the terminal.
+To access the labeling interface, open **Google Chrome** and navigate to the address shown in the terminal.
 
 ## Results
 Comparison of a few environments can be seen here:
