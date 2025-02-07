@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 import gymnasium as gym
 from torch.utils.tensorboard import SummaryWriter
 from rlhf.utils.env import make_env
@@ -9,7 +8,14 @@ class PPOSetup:
     @staticmethod
     def set_up_writer(run_name, args):
         """
-        Richtet TensorBoard Writer für Logging ein.
+        Sets up TensorBoard writer for logging.
+
+        Args:
+            run_name (str): Name of the training run.
+            args (Namespace): Configuration arguments for the PPO setup.
+
+        Returns:
+            SummaryWriter: A TensorBoard writer instance.
         """
         writer = SummaryWriter(f"runs/{run_name}")
         writer.add_text(
@@ -22,7 +28,13 @@ class PPOSetup:
     @staticmethod
     def set_up_device(args):
         """
-        Wählt das Gerät (CPU oder CUDA) für die Berechnungen aus.
+        Selects the device (CPU or CUDA) for computation.
+
+        Args:
+            args (Namespace): Configuration arguments including CUDA availability.
+
+        Returns:
+            torch.device: The selected device.
         """
         device = torch.device(
             "cuda" if torch.cuda.is_available() and args.cuda else "cpu"
@@ -32,7 +44,14 @@ class PPOSetup:
     @staticmethod
     def set_up_envs(args, run_name):
         """
-        Richtet die Gym-Umgebung für den PPO-Agenten ein.
+        Sets up the Gym environment for the PPO agent.
+
+        Args:
+            args (Namespace): Configuration arguments for environment setup.
+            run_name (str): Name of the training run.
+
+        Returns:
+            gym.vector.SyncVectorEnv: Configured vectorized environment.
         """
         envs = gym.vector.SyncVectorEnv(
             [
@@ -48,7 +67,14 @@ class PPOSetup:
     @staticmethod
     def set_up_storage(args, envs, device):
         """
-        Erstellt Speicher für Rollouts (Beobachtungen, Aktionen, Belohnungen usw.).
+        Sets up the Gym environment for the PPO agent.
+
+        Args:
+            args (Namespace): Configuration arguments for environment setup.
+            run_name (str): Name of the training run.
+
+        Returns:
+            gym.vector.SyncVectorEnv: Configured vectorized environment.
         """
         obs = torch.zeros(
             (args.num_steps, args.num_envs) + envs.single_observation_space.shape

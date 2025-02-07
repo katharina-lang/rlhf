@@ -15,6 +15,14 @@ from rlhf.core.unsupervised_pt import compute_intrinsic_reward
 
 class PPO:
     def __init__(self, run_name, args, test_data=False):
+        """
+        Initializes the PPO training setup.
+
+        Args:
+            run_name (str): Identifier for the training run.
+            args (Namespace): Configuration arguments for the PPO setup.
+            test_data (bool, optional): If test data is available, it is loaded for evaluation.
+        """
         self.args = args
         # Rollouts Data
         args.batch_size = int(self.args.num_envs * self.args.num_steps)
@@ -79,7 +87,12 @@ class PPO:
             ) = test_data
 
     def collect_rollout_data(self, unsupervised_pretraining=False):
+        """
+        Collects data from the environment by running the policy.
 
+        Args:
+            unsupervised_pretraining (bool, optional): If true, intrinsic motivation is used instead of external rewards.
+        """
         self.obs_action_pair_buffer = None
         self.env_reward_buffer = None
         self.predicted_rewards_buffer = None
@@ -197,6 +210,13 @@ class PPO:
             self.track_pearsonr(self.env_reward_buffer, self.predicted_rewards_buffer)
 
     def save_data(self, state_action_pairs, unsupervised_pretraining):
+        """
+        Stores state-action pairs and rewards into their respective buffers.
+
+        Args:
+            state_action_pairs (np.array): The collected observation-action pairs.
+            unsupervised_pretraining (bool): Indicates whether unsupervised pretraining is used.
+        """
         if self.obs_action_pair_buffer is None:
             self.obs_action_pair_buffer = state_action_pairs
         else:
@@ -223,6 +243,12 @@ class PPO:
                 )
 
     def reshape_data(self, unsupervised_pretraining):
+        """
+        Reshapes data buffers to match the expected input dimensions.
+
+        Args:
+            unsupervised_pretraining (bool): Indicates whether unsupervised pretraining is used.
+        """
         obs_dim = np.prod(self.envs.single_observation_space.shape)
         action_dim = np.prod(self.envs.single_action_space.shape)
         input_dim = obs_dim + action_dim
@@ -234,6 +260,9 @@ class PPO:
     def advantage_calculation(
         self,
     ):
+        """
+        Computes the Generalized Advantage Estimation (GAE) for policy optimization.
+        """
         with torch.no_grad():
             next_value = self.agent.get_value(self.next_obs).reshape(1, -1)
             self.advantages = torch.zeros_like(self.rewards).to(self.device)
@@ -260,6 +289,12 @@ class PPO:
             self.returns = self.advantages + self.values
 
     def record_rewards_for_plotting_purposes(self, explained_var):
+        """
+        Records training metrics for visualization and logs them using TensorBoard.
+
+        Args:
+            explained_var (float): Explained variance of value function predictions.
+        """
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         self.writer.add_scalar(
             "charts/learning_rate",
@@ -295,7 +330,13 @@ class PPO:
         )
 
     def track_pearsonr(self, env_rewards, predicted_rewards):
-        """Calculate and track the Pearson Correlation between environment and real rewards"""
+        """
+        Computes and logs the Pearson correlation coefficient between environment rewards and predicted rewards.
+
+        Args:
+            env_rewards (array-like): True rewards from the environment.
+            predicted_rewards (array-like): Model-predicted rewards.
+        """
         if torch.is_tensor(predicted_rewards):
             predicted_rewards = predicted_rewards.cpu().numpy()
 
