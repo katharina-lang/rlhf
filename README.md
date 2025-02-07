@@ -26,11 +26,19 @@ pip install -r requirements.txt
 ```
 
 ## Run experiments
-To run experiments
+To run experiments either use (or create) the shell scripts in the [scripts](./rlhf/scripts/) directory (you might need to set the executable permission):
+```bash
+chmod +x scripts/halfc.sh
+scripts/halfc.sh
+```
+
+or run the file directly
+
 ```bash
 python -m rlhf.scripts.main
 ```
-This would start an experiment for the `HalfCheeta-v5` environment.
+
+These would start an experiment for the `HalfCheeta-v5` environment.
 You can set flags to change the environment id and different parameters.
 A command with flags could look like the following:
 ```bash
@@ -38,8 +46,11 @@ python -m rlhf.scripts.main --num-queries 750 --no-synthetic
 ```
 All possible flags can be found in the [arguments](./rlhf/configs/arguments.py) file.
 
+If the flag `--no-synthetic` is set, human labeling is required. The system will launch a **Flask** web application where the user labels preferences through an interface in **Google Chrome**.
+To access the labeling interface, open **Google Chrome** and navigate to the adress shown in the terminal.
+
 ## Results
 Comparison of a few environments can be seen here:
 
 ## Learn more
-For a deep dive into our code, please see the file [walkthrough](./walkthrough.md)
+For a deep dive into our code, please see the file [walkthrough](./walkthrough.md).
