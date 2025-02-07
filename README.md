@@ -53,7 +53,7 @@ To access the labeling interface, open **Google Chrome** and navigate to the adr
 Comparison of a few environments can be seen here:
 
 Humanoid Standup with all CleanRl default parameters:
-[HumanoidStandup](./readme_images/stats/episodicRHs.png)[HumanoidStandup](./readme_images/stats/pearsonHs.png)
+![HumanoidStandup](./readme_images/stats/episodicRHs.png)![HumanoidStandup](./readme_images/stats/pearsonHs.png)
 
 ## Learn more
 For a deep dive into our code, please see the file [walkthrough](./walkthrough.md).
