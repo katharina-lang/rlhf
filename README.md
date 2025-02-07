@@ -35,14 +35,14 @@ scripts/halfc.sh
 or run the file directly
 
 ```bash
-python -m rlhf.scripts.main
+python -m rlhf.main
 ```
 
 These would start an experiment for the `HalfCheeta-v5` environment.
 You can set flags to change the environment id and different parameters.
 A command with flags could look like the following:
 ```bash
-python -m rlhf.scripts.main --num-queries 750 --no-synthetic
+python -m rlhf.main --num-queries 750 --no-synthetic
 ```
 All possible flags can be found in the [arguments](./rlhf/configs/arguments.py) file.
 
