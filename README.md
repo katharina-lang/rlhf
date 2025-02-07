@@ -26,7 +26,7 @@ pip install -r requirements.txt
 ```
 
 ## Run experiments
-To run experiments either use (or create) the shell scripts in the [scripts](./rlhf/scripts/) directory (you might need to set the executable permission):
+To run experiments either use (or create) the shell scripts in the [scripts](./scripts/) directory (you might need to set the executable permission):
 ```bash
 chmod +x scripts/halfc.sh
 scripts/halfc.sh
