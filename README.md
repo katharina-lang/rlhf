@@ -32,7 +32,7 @@ python -m rlhf.scripts.main
 ```
 This would start an experiment for the `HalfCheeta-v5` environment.
 You can set flags to change the environment id and different parameters.
-A command with flasg could look like the following:
+A command with flags could look like the following:
 ```bash
 python -m rlhf.scripts.main --num-queries 750 --no-synthetic
 ```
