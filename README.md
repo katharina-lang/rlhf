@@ -4,7 +4,7 @@
 
 ## Overview
 
-This project is a reimplementation of the paper "Deep Reinforcement Learning from Human Preferences" (Christiano et al., 2017). Our goal is to replicate and explore Reinforcement Learning from Human Feedback (RLHF) using a modularized training setup and incorporating synthetic and human feedback for reward modeling.
+Our project is a fast and modular reimplementation of Deep Reinforcement Learning from Human Preferences (Christiano et al., 2017), designed for scalable and efficient research in Reinforcement Learning from Human Feedback (RLHF). By integrating both synthetic and human feedback for reward modeling, our framework enables systematic exploration of preference-based reinforcement learning in a flexible and extensible setup.
 
 
 
