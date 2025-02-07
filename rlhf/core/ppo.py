@@ -14,14 +14,13 @@ from rlhf.core.unsupervised_pt import compute_intrinsic_reward
 
 
 class PPO:
-    def __init__(self, run_name, args, test_data=False):
+    def __init__(self, run_name, args):
         """
         Initializes the PPO training setup.
 
         Args:
             run_name (str): Identifier for the training run.
             args (Namespace): Configuration arguments for the PPO setup.
-            test_data (bool, optional): If test data is available, it is loaded for evaluation.
         """
         self.args = args
         # Rollouts Data
@@ -77,14 +76,6 @@ class PPO:
 
         if self.args.unsupervised_pretraining:
             self.density_model = up.KNNDensityModel(k=5)
-
-        # Falls Testdaten vorhanden
-        if test_data:
-            (
-                self.obs_action_pair_buffer,
-                self.true_reward_buffer,
-                self.predicted_rewards_buffer,
-            ) = test_data
 
     def collect_rollout_data(self, unsupervised_pretraining=False):
         """
