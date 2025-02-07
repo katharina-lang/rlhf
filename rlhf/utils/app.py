@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import time
 import threading
-import signal
 import socket
 from rlhf.configs.arguments import Args
 import tyro
@@ -29,29 +28,27 @@ app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 button_status = (-1, -1)
-button_set = False
+button_set = False # Tells labeling.py if a new label is available
 video_paths = []
-videos_ready = False
+videos_ready = False # From labeling.py: Are the new videos fully recorded
 
 
 @app.route("/stop", methods=["POST"])
 def stop_app():
-    """Beendet die Flask-App und bereinigt den uploads-Ordner."""
     global app_should_stop
     app_should_stop = True
     func = request.environ.get("werkzeug.server.shutdown")
     if func is None:
-        raise RuntimeError("Server kann nicht gestoppt werden.")
+        raise RuntimeError("Server can't be stopped.")
     func()
-    return jsonify({"message": "App wird beendet und uploads-Ordner bereinigt."})
+    return jsonify({"message": "App is stopped and uploads folder is cleaned."})
 
 
-# Überwachung in einem separaten Thread
 def monitor_app():
+    """Monitors progress in a seperate thread."""
     global app_should_stop, preferences_labeled
     while not app_should_stop:
         if preferences_labeled >= num_queries:
-            # Wartezeit, damit das Frontend die Erfolgsmeldung anzeigen kann
             time.sleep(1)
             app_should_stop = True
             break
@@ -66,9 +63,14 @@ def index():
 
 @app.route("/button_action", methods=["POST"])
 def button_action():
+    """Is called when a button is clicked.
+    Sets the label according to the human feedback.
+    Loads new videos and sends them to the frontend as soon as they've been recorded in labeling.py"""
     global button_status
     global button_set
     global preferences_labeled
+
+    # Set labels
     action = request.json.get("action")
     if action == "left":
         button_status = (1, 0)
@@ -83,12 +85,12 @@ def button_action():
         button_status = (0, 0)
         button_set = True
     else:
-        return jsonify({"error": "Ungültige Aktion"}), 400
+        return jsonify({"error": "Invalid action"}), 400
     if action in ["left", "right", "equal", "none"]:
         preferences_labeled += 1
         button_set = True
 
-    # neue Videos laden
+    # Load new videos
     global videos_ready
     while videos_ready == False:
         time.sleep(0.1)
@@ -105,7 +107,6 @@ def button_action():
     return jsonify({"button_status": button_status, "set": button_set, "videos": video_paths, "status": (preferences_labeled)})
 
 
-# Videos an frontend senden
 @app.route("/get-videos", methods=["GET"])
 def get_videos():
     global video_paths
@@ -138,28 +139,26 @@ def set_set():
     data = request.json
     if "new_value" in data:
         button_set = data["new_value"]
-        return jsonify({"message": "Variable aktualisiert!", "variable": button_set})
+        return jsonify({"message": "Variable updated!", "variable": button_set})
     else:
-        return jsonify({"error": "Kein neuer Wert übergeben!"}), 400
+        return jsonify({"error": "No new value transferred!"}), 400
 
 
-# von labeling.py, videos_ready nach auf True setzen, wenn Videos komplett fertig aufgenommen -> können dann angezeigt werden
 @app.route("/setVideosReady", methods=["POST"])
 def set_videos_ready():
     global videos_ready
     data = request.json
     if "new_value" in data:
         videos_ready = data["new_value"]
-        return jsonify({"message": "Variable aktualisiert!", "variable": videos_ready})
+        return jsonify({"message": "Variable updated!", "variable": videos_ready})
     else:
-        return jsonify({"error": "Kein neuer Wert übergeben!"}), 400
+        return jsonify({"error": "No new value transferred!"}), 400
 
 
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
 
-    # Sende die Datei mit Cache-Control Header für kein Caching
     response = send_from_directory(app.config["UPLOAD_FOLDER"], filename)
     response.cache_control.no_cache = True
     response.cache_control.no_store = True
@@ -169,16 +168,16 @@ def uploaded_file(filename):
 
 @app.route("/is-labeling-complete", methods=["GET"])
 def is_labeling_complete():
-    """Prüft, ob das Labeln abgeschlossen ist."""
+    """Checks if labeling is complete."""
     global preferences_labeled
     if preferences_labeled >= num_queries:
         return jsonify({"complete": True})
     return jsonify({"complete": False})
 
 
-# Caching verhindern
 @app.after_request
 def add_no_cache_headers(response):
+    """Prevent caching."""
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -186,17 +185,17 @@ def add_no_cache_headers(response):
 
 
 def find_free_port():
-    """Findet einen freien Port auf dem System."""
+    """Finds free port in the system."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return s.getsockname()[1]
 
 
 def start_flask():
-    """Startet die Flask-App auf einem dynamischen Port und speichert den Port global."""
+    """Starts Flask app on a dynamical port and saves the port globally."""
     global flask_port
-    if flask_port is None:  # Nur, wenn der Port noch nicht gesetzt wurde
-        flask_port = find_free_port()  # Dynamischen Port ermitteln
+    if flask_port is None:
+        flask_port = find_free_port()
         flask_thread = threading.Thread(
             target=app.run,
             kwargs={
@@ -211,5 +210,5 @@ def start_flask():
         monitor_thread = threading.Thread(target=monitor_app, daemon=True)
         monitor_thread.start()
 
-        time.sleep(1)  # Warten, bis Flask vollständig gestartet ist
+        time.sleep(1)
     return flask_port

@@ -9,16 +9,16 @@
             try {
                 const response = await fetch('/get-videos');
                 if (!response.ok) {
-                    throw new Error('Fehler beim Abrufen der Videos.');
+                    throw new Error('Error while calling the videos.');
                 }
 
                 const data = await response.json();
 
                 if (!data.videos || data.videos.length < 2) {
-                    throw new Error('Nicht genügend Videos verfügbar.');
+                    throw new Error('Not enough videos available.');
                 }
 
-                // Video-Container leeren und neue Videos hinzufügen
+                // Empty video container and add new videos
                 const videoContainer = document.getElementById('video-container');
                 videoContainer.innerHTML = '';
 
@@ -38,8 +38,8 @@
                 });
 
             } catch (error) {
-                console.error('Fehler beim Laden der Videos:', error);
-                document.getElementById('video-container').innerHTML = '<p>Keine Videos verfügbar.</p>';
+                console.error('Error while calling the videos:', error);
+                document.getElementById('video-container').innerHTML = '<p>No videos available.</p>';
             }
         }
 
@@ -48,46 +48,46 @@
                 const response = await fetch('/is-labeling-complete');
 
                 if (!response.ok) {
-                    throw new Error('Fehler beim Abfragen des Status.');
+                    throw new Error('Error while calling the status.');
                 }
 
                 const data = await response.json();
 
                 if (data.complete) {
-                    // Pop-Up anzeigen
-                    alert("Das Labeln aller Videos ist abgeschlossen! Sie können das Fenster schließen.");
-                    // Statusanzeige aktualisieren
+                    // Show pop-up
+                    alert("Labeling of the videos is complete! You can close the window now.");
+                    // Disable buttons and other features
                     document.getElementById('status').innerText = "";
                     document.getElementById('loading-indicator').style.display = 'none';
                     document.getElementById('video-container').style.display = 'none';
                     document.getElementById('finished').style.display = 'block'
                     const buttons = document.querySelectorAll('.button');
                     buttons.forEach(button => button.disabled = true);
-                    // Stoppe die weitere Überprüfung
+
                     clearInterval(labelCheckInterval);
                 }
             } catch (error) {
-                console.error('Fehler beim Überprüfen des Status:', error);
+                console.error('Error while checking the status:', error);
             }
         }
 
-        // Initialisiere regelmäßige Überprüfung
+        // Regular tests if labeling is complete
         const labelCheckInterval = setInterval(checkLabelingCompletion, 500);
 
-        // Button-Druck
+        // Button click
         async function sendAction(action) {
             console.log("sendAction");
 
-            // Buttons deaktivieren
+            // Disable buttons
             const buttons = document.querySelectorAll('.button');
             buttons.forEach(button => button.disabled = true);
 
-            // Wartesymbol anzeigen
+            // Loading indicator
             document.getElementById('loading-indicator').style.display = 'block';
             document.getElementById('video-container').style.display = 'none';
             
             try {
-                // Serveranfrage senden
+                // Send server request
                 const response = await fetch('/button_action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -98,18 +98,16 @@
                     if (data.status) {
                         document.getElementById('status').innerText = `Labels done: ${data.status}`;
                     }
-                    // Lade Videos neu
+                    // Load new videos
                     await loadVideos();
                 }
             } catch (error) {
-                console.error('Fehler bei der Serveranfrage:', error);
+                console.error('Error while requesting server:', error);
             } finally {
-                // Wartesymbol ausblenden und Buttons aktivieren
-                console.log("vor dem enablen");
+                // Hide loading indicator, enable buttons
                 document.getElementById('loading-indicator').style.display = 'none';
                 document.getElementById('video-container').style.display = 'flex';
                 buttons.forEach(button => button.disabled = false);
-                console.log("alles enabled");
             }
         }
 
@@ -212,13 +210,13 @@
 
         @media (min-width: 468px) and (max-height: 600px) {
             body {
-                overflow: scroll; /* Scrollen, wenn Fenster sehr schmal */
+                overflow: scroll;
             }
             #video-container video {
-                max-height: 60vh; /* Noch kleinere Videos bei sehr wenig vertikalem Platz */
+                max-height: 60vh;
             }
             .button {
-                font-size: 0.8rem; /* Kleinere Buttons */
+                font-size: 0.8rem;
             }
         }
 
@@ -233,7 +231,7 @@
         <p>Labeling finished. You can close the window now.</p>
     </div>    
     <div id="video-container">
-        <p>Keine Videos geladen.</p>
+        <p>No videos submitted.</p>
     </div>
 
     <div class="button-container">
