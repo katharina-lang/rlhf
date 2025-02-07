@@ -50,9 +50,7 @@ If the flag `--no-synthetic` is set, human labeling is required. The system will
 To access the labeling interface, open **Google Chrome** and navigate to the address shown in the terminal.
 
 ## Results
-Comparison of a few environments can be seen here:
-
-Humanoid Standup with all CleanRl default parameters:
+An example result can be seen here (Humanoid Standup with all CleanRl default parameters):
 
 <img src="./documents/stats/episodicRHs.png" alt="Humanoid Standup - Episodic RHs" width="350" height="350">
 
