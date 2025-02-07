@@ -11,6 +11,7 @@ from rlhf.core.ppo import PPO
 from rlhf.core.reward_model import train_reward_model_ensemble
 from rlhf.core.labeling import Labeling
 from rlhf.utils.app import start_flask, flask_port, monitor_app
+from rlhf.core.record_segments import record_video_for_segment
 
 
 def start_rollout_loop(ppo, num_iterations):
@@ -37,6 +38,9 @@ def start_rollout_loop(ppo, num_iterations):
             ppo.optimizer.param_groups[0]["lr"] = lrnow
 
         ppo.collect_rollout_data()
+
+        if not ppo.args.synthetic and iteration % 10 == 0:
+            save_video(ppo.args.env_id, ppo.obs_action_pair_buffer, iteration)
 
         if total_queries > 0:
             queries = min(queries_per_iter, total_queries)
@@ -132,6 +136,12 @@ def clear_uploads_folder(folder_path):
         # Falls der Ordner nicht existiert, erstelle ihn
         os.makedirs(folder_path)
         print(f"Ordner {folder_path} wurde erstellt.")
+
+
+def save_video(env_id, obs_action, iteration):
+    segment = (obs_action, 0)
+    video_folder = "segmentVideos"
+    record_video_for_segment(env_id, segment, video_folder, 0, iteration)
 
 
 if __name__ == "__main__":
